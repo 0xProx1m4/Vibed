@@ -47,16 +47,18 @@ final class SpotifyController: ObservableObject {
     if application "Spotify" is not running then return "NOTRUNNING"
     with timeout of 3 seconds
         tell application "Spotify"
-            set st to player state as string
-            if st is "stopped" then return "STOPPED"
-            set t to current track
-            set d to character id 31
-            set art to ""
+            set tideState to (player state as string)
+            if tideState is "stopped" then return "STOPPED"
+            set tideTrack to current track
+            set tideSep to (character id 31)
+            set tideArt to ""
             try
-                set art to artwork url of t
-                if art is missing value then set art to ""
+                set tideArt to artwork url of tideTrack
+                if tideArt is missing value then set tideArt to ""
             end try
-            return (id of t) & d & (name of t) & d & (artist of t) & d & (album of t) & d & art & d & ((duration of t) as string) & d & ((player position) as string) & d & st
+            set tideDuration to (duration of tideTrack) as string
+            set tidePosition to (player position) as string
+            return (id of tideTrack) & tideSep & (name of tideTrack) & tideSep & (artist of tideTrack) & tideSep & (album of tideTrack) & tideSep & tideArt & tideSep & tideDuration & tideSep & tidePosition & tideSep & tideState
         end tell
     end timeout
     """
