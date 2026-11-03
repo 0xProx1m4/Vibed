@@ -7,8 +7,8 @@ struct MenuContent: View {
     @AppStorage(Prefs.lockOnScreenSleep) private var lockOnScreenSleep = false
     @AppStorage(Prefs.wallpaperMode) private var wallpaperMode = true
     @AppStorage(Prefs.lockScreenBar) private var lockScreenBar = true
-    @AppStorage(Prefs.coverSize) private var coverSize = 0.34
-    @AppStorage(Prefs.coverCenter) private var coverCenter = 0.53
+    @AppStorage(Prefs.coverSize) private var coverSize = 0.44
+    @AppStorage(Prefs.coverCenter) private var coverCenter = 0.472
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
@@ -25,8 +25,8 @@ struct MenuContent: View {
                         .font(.system(size: 11))
                         .foregroundStyle(.secondary)
                         .fixedSize(horizontal: false, vertical: true)
-                    labeledSlider("Taille", value: $coverSize, range: 0.2...0.5)
-                    labeledSlider("Position", value: $coverCenter, range: 0.35...0.7)
+                    labeledSlider("Taille", value: $coverSize, range: 0.3...0.56)
+                    labeledSlider("Position", value: $coverCenter, range: 0.38...0.6)
                 }
             }
             .font(.system(size: 12))

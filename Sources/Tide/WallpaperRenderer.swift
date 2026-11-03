@@ -7,10 +7,20 @@ import ImageIO
 /// L'horloge et le lecteur sont ensuite dessinés par macOS sur le vrai écran de verrouillage.
 enum WallpaperRenderer {
     struct Layout {
-        /// Côté de la pochette, en fraction de la hauteur de l'écran.
+        /// Hauteur de la carte pochette, en fraction de la hauteur de l'écran.
         var coverSize: CGFloat
-        /// Centre vertical de la pochette, en fraction de la hauteur (0 = haut, 1 = bas).
+        /// Centre vertical de la carte, en fraction de la hauteur (0 = haut, 1 = bas).
         var coverCenter: CGFloat
+
+        /// Carte en portrait, comme sur l'écran de verrouillage de référence.
+        static let aspectRatio: CGFloat = 0.8
+
+        /// Rectangle de la carte, en coordonnées « depuis le haut » (pour une hauteur d'écran donnée).
+        func cardRect(screenWidth: CGFloat, screenHeight: CGFloat) -> CGRect {
+            let h = screenHeight * coverSize
+            let w = h * Self.aspectRatio
+            return CGRect(x: (screenWidth - w) / 2, y: screenHeight * coverCenter - h / 2, width: w, height: h)
+        }
     }
 
     private static let ciContext = CIContext(options: [.cacheIntermediates: false])
@@ -62,10 +72,11 @@ enum WallpaperRenderer {
         }
 
         // 3. Pochette nette, coins arrondis, ombre portée
-        let side = height * layout.coverSize
-        let centerY = height * (1 - layout.coverCenter) // CoreGraphics : origine en bas
-        let rect = CGRect(x: (width - side) / 2, y: centerY - side / 2, width: side, height: side)
-        let radius = side * 0.055
+        let card = layout.cardRect(screenWidth: width, screenHeight: height)
+        // CoreGraphics : origine en bas
+        let rect = CGRect(x: card.minX, y: height - card.maxY, width: card.width, height: card.height)
+        let side = rect.height
+        let radius = rect.width * 0.05
         let path = CGPath(roundedRect: rect, cornerWidth: radius, cornerHeight: radius, transform: nil)
 
         ctx.saveGState()
@@ -78,7 +89,7 @@ enum WallpaperRenderer {
         ctx.saveGState()
         ctx.addPath(path)
         ctx.clip()
-        let scale = max(side / CGFloat(cover.width), side / CGFloat(cover.height))
+        let scale = max(rect.width / CGFloat(cover.width), rect.height / CGFloat(cover.height))
         let drawW = CGFloat(cover.width) * scale
         let drawH = CGFloat(cover.height) * scale
         ctx.draw(cover, in: CGRect(x: rect.midX - drawW / 2, y: rect.midY - drawH / 2, width: drawW, height: drawH))

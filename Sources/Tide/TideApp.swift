@@ -28,8 +28,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             Prefs.lockOnScreenSleep: false,
             Prefs.wallpaperMode: true,
             Prefs.lockScreenBar: true,
-            Prefs.coverSize: 0.34,
-            Prefs.coverCenter: 0.53,
+            Prefs.coverSize: 0.44,
+            Prefs.coverCenter: 0.472,
         ])
         NSApp.setActivationPolicy(.accessory)
 
@@ -74,8 +74,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 enum Prefs {
     static let wallpaperMode = "wallpaperMode"
     static let lockScreenBar = "lockScreenBar"
-    static let coverSize = "coverSize"
-    static let coverCenter = "coverCenter"
+    static let coverSize = "cardHeight"
+    static let coverCenter = "cardCenter"
     static let autoLockMinutes = "autoLockMinutes"
     static let lockOnScreenSleep = "lockOnScreenSleep"
 }

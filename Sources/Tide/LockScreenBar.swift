@@ -93,25 +93,30 @@ final class LockScreenBar {
         )
     }
 
-    /// Place la carte sous la pochette du fond d'écran (mêmes réglages Taille/Position).
+    /// Place la barre à cheval sur le bas de la carte pochette (mêmes réglages Taille/Position).
     private func layout(_ panel: LockBarPanel, on screen: NSScreen) {
         let defaults = UserDefaults.standard
-        let height = screen.frame.height
-        let s = min(max(height / 900, 0.7), 1.8)
-        let coverSide = height * defaults.double(forKey: Prefs.coverSize)
-        let coverBottom = height * defaults.double(forKey: Prefs.coverCenter) + coverSide / 2 // depuis le haut
-        let cardWidth = max(coverSide * 0.8, 300 * s)
+        let frame = screen.frame
+        let card = WallpaperRenderer.Layout(
+            coverSize: defaults.double(forKey: Prefs.coverSize),
+            coverCenter: defaults.double(forKey: Prefs.coverCenter)
+        ).cardRect(screenWidth: frame.width, screenHeight: frame.height)
+
+        // Comme sur la référence : ~72 % de la largeur de la carte, chevauche son bas.
+        let barWidth = max(card.width * 0.72, 220)
+        let s = barWidth / 250
+        let barHeight = 112 * s
+        let barTop = card.maxY - frame.height * 0.014 // depuis le haut
 
         let margin: CGFloat = 30 // place pour l'ombre
-        let cardHeight = 118 * s
-        let size = CGSize(width: cardWidth + margin * 2, height: cardHeight + margin * 2)
+        let size = CGSize(width: barWidth + margin * 2, height: barHeight + margin * 2)
         let origin = CGPoint(
-            x: screen.frame.midX - size.width / 2,
-            y: screen.frame.maxY - (coverBottom - 34 * s) - cardHeight - margin
+            x: frame.midX - size.width / 2,
+            y: frame.maxY - barTop - barHeight - margin
         )
 
         let hosting = FirstClickHostingView(
-            rootView: LockBarContent(width: cardWidth, s: s, margin: margin)
+            rootView: LockBarContent(width: barWidth, height: barHeight, s: s, margin: margin)
                 .environment(\.colorScheme, .dark)
         )
         hosting.frame = CGRect(origin: .zero, size: size)
@@ -120,10 +125,11 @@ final class LockScreenBar {
     }
 }
 
-/// Contenu de la barre : la carte du lecteur, uniquement si un morceau est chargé.
+/// Contenu de la barre, uniquement si un morceau est chargé.
 private struct LockBarContent: View {
     @ObservedObject private var spotify = SpotifyController.shared
     let width: CGFloat
+    let height: CGFloat
     let s: CGFloat
     let margin: CGFloat
 
@@ -131,11 +137,100 @@ private struct LockBarContent: View {
         ZStack(alignment: .top) {
             Color.clear
             if let track = spotify.track {
-                PlayerCard(track: track, width: width, s: s)
+                CompactPlayer(track: track, s: s)
+                    .frame(width: width, height: height)
+                    .liquidGlass(cornerRadius: 22 * s)
                     .padding(.top, margin)
                     .transition(.opacity)
             }
         }
         .animation(.easeInOut(duration: 0.3), value: spotify.track?.id)
+    }
+}
+
+/// Lecteur compact : titre/artiste, progression avec temps, puis ⏮ ⏯ ⏭.
+private struct CompactPlayer: View {
+    @ObservedObject private var spotify = SpotifyController.shared
+    let track: Track
+    let s: CGFloat
+
+    var body: some View {
+        VStack(spacing: 7 * s) {
+            ZStack {
+                VStack(spacing: 1 * s) {
+                    Text(track.title)
+                        .font(.system(size: 11.5 * s, weight: .semibold))
+                    Text(track.artist)
+                        .font(.system(size: 10.5 * s, weight: .medium))
+                        .foregroundStyle(.white.opacity(0.7))
+                }
+                .lineLimit(1)
+                .padding(.horizontal, 18 * s)
+
+                HStack {
+                    Spacer()
+                    Image(systemName: "waveform")
+                        .font(.system(size: 9 * s, weight: .semibold))
+                        .foregroundStyle(.white.opacity(spotify.isPlaying ? 0.75 : 0.3))
+                }
+            }
+
+            TimelineView(.periodic(from: .now, by: 0.5)) { ctx in
+                progress(current: spotify.scrubPosition ?? spotify.position(at: ctx.date))
+            }
+
+            HStack(spacing: 30 * s) {
+                button("backward.fill", size: 14 * s) { spotify.previous() }
+                button(spotify.isPlaying ? "pause.fill" : "play.fill", size: 19 * s) { spotify.playPause() }
+                button("forward.fill", size: 14 * s) { spotify.next() }
+            }
+        }
+        .foregroundStyle(.white)
+        .padding(.horizontal, 14 * s)
+        .padding(.vertical, 10 * s)
+    }
+
+    private func button(_ symbol: String, size: CGFloat, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Image(systemName: symbol)
+                .font(.system(size: size, weight: .semibold))
+                .frame(width: size * 1.9, height: size * 1.6)
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(PressableStyle())
+    }
+
+    private func progress(current: TimeInterval) -> some View {
+        let duration = max(track.duration, 0.001)
+        let fraction = min(max(current / duration, 0), 1)
+        let scrubbing = spotify.scrubPosition != nil
+
+        return HStack(spacing: 7 * s) {
+            Text(PlayerCard.format(current))
+            GeometryReader { g in
+                ZStack(alignment: .leading) {
+                    Capsule().fill(.white.opacity(0.25))
+                    Capsule().fill(.white.opacity(0.9)).frame(width: g.size.width * fraction)
+                }
+                .frame(height: (scrubbing ? 6 : 3.5) * s)
+                .frame(maxHeight: .infinity)
+                .contentShape(Rectangle())
+                .gesture(
+                    DragGesture(minimumDistance: 0)
+                        .onChanged { value in
+                            spotify.scrubPosition = min(max(value.location.x / g.size.width, 0), 1) * duration
+                        }
+                        .onEnded { value in
+                            spotify.seek(to: min(max(value.location.x / g.size.width, 0), 1) * duration)
+                            spotify.scrubPosition = nil
+                        }
+                )
+                .animation(.spring(response: 0.25), value: scrubbing)
+            }
+            .frame(height: 12 * s)
+            Text("-" + PlayerCard.format(track.duration - current))
+        }
+        .font(.system(size: 8.5 * s, weight: .medium).monospacedDigit())
+        .foregroundStyle(.white.opacity(0.7))
     }
 }
