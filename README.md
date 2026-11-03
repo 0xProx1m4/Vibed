@@ -10,9 +10,11 @@ macOS ne laisse aucune app dessiner directement sur l'écran de verrouillage. Ma
 Sonoma, cet écran utilise **le fond d'écran du bureau**, et macOS y affiche lui‑même
 l'horloge et le lecteur « En lecture » (cœur, ⏮ ⏸ ⏭, AirPlay) pour Spotify.
 
-Tide génère donc, à chaque morceau, une image (pochette floutée + pochette au centre)
-et la met en fond d'écran. Quand rien ne joue, ton fond d'écran d'origine revient
-(réglable), et il est aussi remis quand tu quittes Tide.
+Tide prépare donc, à chaque morceau, une image (pochette floutée + pochette au centre) et
+**ne l'applique qu'au moment où tu verrouilles le Mac**. Dès que tu déverrouilles, ton fond
+d'écran d'origine revient exactement comme avant (y compris les fonds aériens/dynamiques) :
+sur ton bureau, rien ne change. Le lecteur natif de macOS sur l'écran verrouillé permet de
+mettre en pause, passer au morceau suivant et voir la barre de durée.
 
 Tide propose en plus son propre écran de verrouillage (`⌃⌥⌘L`), entièrement personnalisé.
 
@@ -31,8 +33,7 @@ Au premier lancement, macOS demande l'autorisation de contrôler **Spotify** : a
 
 ## Réglages (icône 🌊 dans la barre des menus)
 
-- **Pochette en fond d'écran** : active ou désactive le mode écran de verrouillage macOS.
-- **Remettre mon fond quand rien ne joue** : restaure ton fond d'écran 15 s après l'arrêt de Spotify.
+- **Pochette sur l'écran verrouillé** : active ou désactive le mode écran de verrouillage macOS.
 - **Taille / Position** : ajuste la pochette pour qu'elle tombe bien entre l'horloge et le lecteur de macOS.
 
 Si le lecteur de macOS n'apparaît pas sur l'écran de verrouillage : Réglages Système ›

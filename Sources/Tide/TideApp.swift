@@ -27,7 +27,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             Prefs.autoLockMinutes: 0,
             Prefs.lockOnScreenSleep: false,
             Prefs.wallpaperMode: true,
-            Prefs.restoreWallpaperWhenIdle: true,
             Prefs.coverSize: 0.34,
             Prefs.coverCenter: 0.53,
         ])
@@ -72,7 +71,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
 enum Prefs {
     static let wallpaperMode = "wallpaperMode"
-    static let restoreWallpaperWhenIdle = "restoreWallpaperWhenIdle"
     static let coverSize = "coverSize"
     static let coverCenter = "coverCenter"
     static let autoLockMinutes = "autoLockMinutes"

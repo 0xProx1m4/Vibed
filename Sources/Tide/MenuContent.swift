@@ -6,7 +6,6 @@ struct MenuContent: View {
     @AppStorage(Prefs.autoLockMinutes) private var autoLockMinutes = 0
     @AppStorage(Prefs.lockOnScreenSleep) private var lockOnScreenSleep = false
     @AppStorage(Prefs.wallpaperMode) private var wallpaperMode = true
-    @AppStorage(Prefs.restoreWallpaperWhenIdle) private var restoreWhenIdle = true
     @AppStorage(Prefs.coverSize) private var coverSize = 0.34
     @AppStorage(Prefs.coverCenter) private var coverCenter = 0.53
 
@@ -18,9 +17,12 @@ struct MenuContent: View {
 
             VStack(alignment: .leading, spacing: 10) {
                 sectionTitle("Écran de verrouillage macOS")
-                Toggle("Pochette en fond d'écran", isOn: $wallpaperMode)
+                Toggle("Pochette sur l'écran verrouillé", isOn: $wallpaperMode)
                 if wallpaperMode {
-                    Toggle("Remettre mon fond quand rien ne joue", isOn: $restoreWhenIdle)
+                    Text("Ton fond d'écran n'est jamais modifié pendant que tu utilises le Mac. Verrouille avec ⌃⌘Q pour voir le résultat.")
+                        .font(.system(size: 11))
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
                     labeledSlider("Taille", value: $coverSize, range: 0.2...0.5)
                     labeledSlider("Position", value: $coverCenter, range: 0.35...0.7)
                 }
