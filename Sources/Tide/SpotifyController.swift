@@ -385,20 +385,29 @@ final class SpotifyController: ObservableObject {
             missing.forEach { self.prefetching.insert($0.uri) }
             defer { missing.forEach { self.prefetching.remove($0.uri) } }
 
-            await withTaskGroup(of: (String, NSImage?).self) { group in
+            await withTaskGroup(of: DownloadedArtwork.self) { group in
                 for (uri, url) in missing {
                     group.addTask {
-                        if let hiRes = await Self.downloadImage(Self.highResolutionURL(for: url)) {
-                            return (uri, hiRes)
-                        }
-                        return (uri, await Self.downloadImage(url))
+                        var image = await Self.downloadImage(Self.highResolutionURL(for: url))
+                        if image == nil { image = await Self.downloadImage(url) }
+                        return DownloadedArtwork(uri: uri, image: image)
                     }
                 }
-                for await (uri, image) in group {
-                    if let image, self.artworkCache[uri] == nil { self.cache(image, for: uri) }
+                for await result in group {
+                    if let image = result.image, self.artworkCache[result.uri] == nil {
+                        self.cache(image, for: result.uri)
+                    }
                 }
             }
         }
+    }
+
+    /// Pochette téléchargée en tâche de fond. L'image n'est plus modifiée une fois créée :
+    /// on peut la passer sans risque au thread principal (NSImage n'est déclarée `Sendable`
+    /// qu'à partir de macOS 14).
+    private struct DownloadedArtwork: @unchecked Sendable {
+        let uri: String
+        let image: NSImage?
     }
 
     /// Les URL de pochette Spotify encodent la taille : …ab67616d0000b273… = 640 px,
