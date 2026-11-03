@@ -4,13 +4,32 @@ import SwiftUI
 struct MenuContent: View {
     @ObservedObject private var spotify = SpotifyController.shared
     @AppStorage(Prefs.autoLockMinutes) private var autoLockMinutes = 0
-    @AppStorage(Prefs.lockOnScreenSleep) private var lockOnScreenSleep = true
+    @AppStorage(Prefs.lockOnScreenSleep) private var lockOnScreenSleep = false
+    @AppStorage(Prefs.wallpaperMode) private var wallpaperMode = true
+    @AppStorage(Prefs.restoreWallpaperWhenIdle) private var restoreWhenIdle = true
+    @AppStorage(Prefs.coverSize) private var coverSize = 0.34
+    @AppStorage(Prefs.coverCenter) private var coverCenter = 0.53
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
             nowPlaying
 
             accessBanner
+
+            VStack(alignment: .leading, spacing: 10) {
+                sectionTitle("Écran de verrouillage macOS")
+                Toggle("Pochette en fond d'écran", isOn: $wallpaperMode)
+                if wallpaperMode {
+                    Toggle("Remettre mon fond quand rien ne joue", isOn: $restoreWhenIdle)
+                    labeledSlider("Taille", value: $coverSize, range: 0.2...0.5)
+                    labeledSlider("Position", value: $coverCenter, range: 0.35...0.7)
+                }
+            }
+            .font(.system(size: 12))
+
+            Divider()
+
+            sectionTitle("Écran Tide")
 
             Button {
                 LockScreenManager.shared.lock()
@@ -51,6 +70,20 @@ struct MenuContent: View {
         }
         .padding(16)
         .frame(width: 300)
+    }
+
+    private func sectionTitle(_ text: String) -> some View {
+        Text(text.uppercased())
+            .font(.system(size: 10, weight: .semibold))
+            .foregroundStyle(.secondary)
+    }
+
+    private func labeledSlider(_ title: String, value: Binding<Double>, range: ClosedRange<Double>) -> some View {
+        HStack(spacing: 10) {
+            Text(title).frame(width: 52, alignment: .leading)
+            Slider(value: value, in: range)
+                .controlSize(.small)
+        }
     }
 
     @ViewBuilder

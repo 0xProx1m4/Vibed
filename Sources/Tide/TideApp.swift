@@ -18,14 +18,23 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var hotKey: HotKey?
     private var idleTimer: Timer?
 
+    func applicationWillTerminate(_ notification: Notification) {
+        WallpaperManager.shared.restoreOriginal()
+    }
+
     func applicationDidFinishLaunching(_ notification: Notification) {
         UserDefaults.standard.register(defaults: [
             Prefs.autoLockMinutes: 0,
-            Prefs.lockOnScreenSleep: true,
+            Prefs.lockOnScreenSleep: false,
+            Prefs.wallpaperMode: true,
+            Prefs.restoreWallpaperWhenIdle: true,
+            Prefs.coverSize: 0.34,
+            Prefs.coverCenter: 0.53,
         ])
         NSApp.setActivationPolicy(.accessory)
 
         SpotifyController.shared.start()
+        WallpaperManager.shared.start()
 
         // ⌃⌥⌘L  → verrouiller
         hotKey = HotKey(
@@ -62,6 +71,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 }
 
 enum Prefs {
+    static let wallpaperMode = "wallpaperMode"
+    static let restoreWallpaperWhenIdle = "restoreWallpaperWhenIdle"
+    static let coverSize = "coverSize"
+    static let coverCenter = "coverCenter"
     static let autoLockMinutes = "autoLockMinutes"
     static let lockOnScreenSleep = "lockOnScreenSleep"
 }

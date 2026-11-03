@@ -1,8 +1,20 @@
 # Tide 🌊
 
-Un écran de verrouillage pour macOS qui affiche ce que tu écoutes sur **Spotify** :
-la pochette agrandie en fond, la pochette nette au centre, la grosse horloge et un
-lecteur en **Liquid Glass** (lecture/pause, précédent, suivant, barre de progression).
+Affiche ce que tu écoutes sur **Spotify** sur le **vrai écran de verrouillage de macOS** :
+la pochette agrandie et floutée en fond, la pochette nette au centre, et par‑dessus
+l'horloge et le lecteur Liquid Glass natifs de macOS.
+
+### Comment ça marche
+
+macOS ne laisse aucune app dessiner directement sur l'écran de verrouillage. Mais depuis
+Sonoma, cet écran utilise **le fond d'écran du bureau**, et macOS y affiche lui‑même
+l'horloge et le lecteur « En lecture » (cœur, ⏮ ⏸ ⏭, AirPlay) pour Spotify.
+
+Tide génère donc, à chaque morceau, une image (pochette floutée + pochette au centre)
+et la met en fond d'écran. Quand rien ne joue, ton fond d'écran d'origine revient
+(réglable), et il est aussi remis quand tu quittes Tide.
+
+Tide propose en plus son propre écran de verrouillage (`⌃⌥⌘L`), entièrement personnalisé.
 
 ## Installation
 
@@ -17,7 +29,21 @@ open build/Tide.app
 Au premier lancement, macOS demande l'autorisation de contrôler **Spotify** : accepte.
 (Si tu as refusé : Réglages Système → Confidentialité et sécurité → Automatisation → Tide → Spotify.)
 
-## Utilisation
+## Réglages (icône 🌊 dans la barre des menus)
+
+- **Pochette en fond d'écran** : active ou désactive le mode écran de verrouillage macOS.
+- **Remettre mon fond quand rien ne joue** : restaure ton fond d'écran 15 s après l'arrêt de Spotify.
+- **Taille / Position** : ajuste la pochette pour qu'elle tombe bien entre l'horloge et le lecteur de macOS.
+
+Si le lecteur de macOS n'apparaît pas sur l'écran de verrouillage : Réglages Système ›
+Écran verrouillé, et vérifie que l'affichage des contrôles multimédia est autorisé.
+
+Limites : le fond d'écran n'est changé que sur l'Espace (bureau) actif de chaque écran.
+Les fonds d'écran animés d'Apple (« aériens ») peuvent ne pas être restaurés à l'identique.
+
+## Écran Tide (optionnel)
+
+
 
 | Action | Comment |
 |---|---|
@@ -61,6 +87,8 @@ fais play/pause (Spotify diffuse l'info), mais les boutons ne fonctionneront pas
 ```
 Sources/Tide/
   TideApp.swift            app barre des menus, raccourci, verrouillage auto
+  WallpaperManager.swift   pochette → fond d'écran (vrai écran de verrouillage)
+  WallpaperRenderer.swift  génération de l'image de fond
   LockScreenManager.swift  fenêtres plein écran + Touch ID
   LockScreenView.swift     l'écran : fond, horloge, pochette, lecteur
   SpotifyController.swift  lecture/pilotage de Spotify via AppleScript
