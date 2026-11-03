@@ -1,15 +1,23 @@
 import AppKit
 import Darwin
 
-/// Accès (privé) au serveur de fenêtres de macOS pour afficher une fenêtre
-/// au-dessus du vrai écran de verrouillage. Chargé dynamiquement : si une version
-/// de macOS change ces fonctions, `moveAboveLockScreen` renvoie simplement false.
+/// Accès (privé) au serveur de fenêtres de macOS pour afficher une fenêtre au-dessus du
+/// vrai écran de verrouillage — même technique que boring.notch (via SkyLightWindow).
+/// Les fonctions sont chargées dynamiquement : si macOS les retire, tout est simplement désactivé.
 enum SkyLight {
+    /// Niveaux absolus des « espaces » du serveur de fenêtres.
+    /// L'écran de verrouillage est à 300 : il faut être au-dessus.
+    private enum SpaceLevel: Int32 {
+        case screenLock = 300
+        case notificationCenterAtScreenLock = 400
+    }
+
     private typealias MainConnectionID = @convention(c) () -> Int32
     private typealias SpaceCreate = @convention(c) (Int32, Int32, Int32) -> Int32
     private typealias SpaceSetAbsoluteLevel = @convention(c) (Int32, Int32, Int32) -> Int32
     private typealias ShowSpaces = @convention(c) (Int32, CFArray) -> Int32
     private typealias AddWindowsToSpace = @convention(c) (Int32, Int32, CFArray, Int32) -> Int32
+    private typealias RemoveWindowsFromSpaces = @convention(c) (Int32, CFArray, CFArray) -> Int32
 
     private static let handle = dlopen("/System/Library/PrivateFrameworks/SkyLight.framework/Versions/A/SkyLight", RTLD_NOW)
 
@@ -22,9 +30,9 @@ enum SkyLight {
         let connection: Int32
         let space: Int32
         let addWindows: AddWindowsToSpace
+        let removeWindows: RemoveWindowsFromSpaces?
     }
 
-    /// Espace créé une seule fois, placé au-dessus de l'écran de verrouillage.
     private static let api: API? = {
         guard let mainConnection = load("SLSMainConnectionID", as: MainConnectionID.self),
               let spaceCreate = load("SLSSpaceCreate", as: SpaceCreate.self),
@@ -37,18 +45,27 @@ enum SkyLight {
         }
         let connection = mainConnection()
         let space = spaceCreate(connection, 1, 0)
-        _ = setLevel(connection, space, 100)
-        _ = showSpaces(connection, [NSNumber(value: space)] as CFArray)
-        return API(connection: connection, space: space, addWindows: addWindows)
+        _ = setLevel(connection, space, SpaceLevel.notificationCenterAtScreenLock.rawValue)
+        _ = showSpaces(connection, [space] as CFArray)
+        return API(
+            connection: connection,
+            space: space,
+            addWindows: addWindows,
+            removeWindows: load("SLSRemoveWindowsFromSpaces", as: RemoveWindowsFromSpaces.self)
+        )
     }()
 
     static var isAvailable: Bool { api != nil }
 
-    /// Déplace la fenêtre (déjà affichée) dans l'espace au-dessus de l'écran de verrouillage.
-    @discardableResult
-    static func moveAboveLockScreen(_ window: NSWindow) -> Bool {
-        guard let api, window.windowNumber > 0 else { return false }
-        _ = api.addWindows(api.connection, api.space, [NSNumber(value: window.windowNumber)] as CFArray, 7)
-        return true
+    /// Place la fenêtre (déjà affichée) dans l'espace situé au-dessus de l'écran de verrouillage.
+    static func delegate(_ window: NSWindow) {
+        guard let api, window.windowNumber > 0 else { return }
+        _ = api.addWindows(api.connection, api.space, [window.windowNumber] as CFArray, 7)
+    }
+
+    /// Retire la fenêtre de cet espace.
+    static func undelegate(_ window: NSWindow) {
+        guard let api, let remove = api.removeWindows, window.windowNumber > 0 else { return }
+        _ = remove(api.connection, [window.windowNumber] as CFArray, [api.space] as CFArray)
     }
 }
