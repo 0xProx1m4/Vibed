@@ -121,9 +121,12 @@ final class LockScreenBar {
         // instantanément, sans attendre que macOS applique le nouveau fond d'écran.
         // Les marges laissent la place à son ombre.
         let margin = max(30, card.width * 0.14)
+        // Sur les côtés, assez de place pour le pop-up des sorties audio, centré sur
+        // le bouton 💻 au bord de la barre (sa moitié déborde, ombre comprise).
+        let sideMargin = max(margin, OutputPopover.width(s: s) / 2 + 24 * s)
         let gap = barTop - card.maxY
         let coverSpace = card.height + gap
-        let size = CGSize(width: max(barWidth, card.width) + margin * 2,
+        let size = CGSize(width: max(barWidth, card.width) + sideMargin * 2,
                           height: card.height + gap + barHeight + margin * 2)
         let origin = CGPoint(
             x: frame.midX - size.width / 2,
@@ -174,7 +177,7 @@ private struct LockBarContent: View {
                     .overlayPreferenceValue(OutputButtonAnchorKey.self) { anchor in
                         GeometryReader { proxy in
                             if outputs.isPickerVisible, let anchor {
-                                popover(button: proxy[anchor], barWidth: proxy.size.width)
+                                popover(button: proxy[anchor])
                             }
                         }
                     }
@@ -186,22 +189,19 @@ private struct LockBarContent: View {
         .animation(.spring(response: 0.32, dampingFraction: 0.82), value: outputs.isPickerVisible)
     }
 
-    /// Pop-up posé juste au-dessus du bouton 💻, sa flèche pointant sur le bouton.
-    /// Il s'aligne sur le bord droit de la barre tant que la flèche peut rester sous le bouton.
-    private func popover(button: CGRect, barWidth: CGFloat) -> some View {
+    /// Pop-up centré au-dessus du bouton 💻, sa flèche au milieu pointant sur l'icône.
+    private func popover(button: CGRect) -> some View {
         let size = OutputPopover.size(s: s, rows: OutputPopover.visibleRows(outputs.devices.count))
         let gap = 4 * s
-        let minX = min(max(button.midX - size.width / 2, 0), max(barWidth - size.width, 0))
         let tipY = button.minY - gap
-        let arrowX = OutputPopover.clampArrow(button.midX - minX, width: size.width, s: s)
 
-        return OutputPopover(s: s, arrowX: arrowX)
+        return OutputPopover(s: s, arrowX: size.width / 2)
             .frame(width: size.width, height: size.height)
             .transition(
-                .scale(scale: 0.5, anchor: UnitPoint(x: arrowX / size.width, y: 1))
+                .scale(scale: 0.5, anchor: .bottom)
                     .combined(with: .opacity)
             )
-            .position(x: minX + size.width / 2, y: tipY - size.height / 2)
+            .position(x: button.midX, y: tipY - size.height / 2)
     }
 }
 
@@ -338,12 +338,6 @@ private struct OutputPopover: View {
 
     /// Hauteur maximale, pour réserver la place dans le panneau.
     static func maxHeight(s: CGFloat) -> CGFloat { size(s: s, rows: maxVisibleRows).height }
-
-    /// Garde la flèche sur la partie droite du bord, hors des coins arrondis.
-    static func clampArrow(_ x: CGFloat, width: CGFloat, s: CGFloat) -> CGFloat {
-        let margin = cornerRadius(s: s) + arrowWidth(s: s) / 2
-        return min(max(x, margin), width - margin)
-    }
 
     var body: some View {
         let rows = Self.visibleRows(outputs.devices.count)
