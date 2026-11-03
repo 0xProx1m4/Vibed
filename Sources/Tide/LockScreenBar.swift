@@ -193,7 +193,7 @@ private struct OutputPicker: View {
                         .frame(width: 18 * s, height: 18 * s)
                         .contentShape(Rectangle())
                 }
-                .buttonStyle(PressableStyle())
+                .buttonStyle(PressableStyle(highlight: .circle))
                 Text("Sortie audio")
                     .font(.system(size: 11 * s, weight: .semibold))
                 Spacer()
@@ -223,7 +223,7 @@ private struct OutputPicker: View {
                             )
                             .contentShape(Rectangle())
                         }
-                        .buttonStyle(PressableStyle())
+                        .buttonStyle(PressableStyle(highlight: .rounded(6 * s)))
                     }
                 }
             }
@@ -301,7 +301,7 @@ private struct CompactPlayer: View {
                 .frame(width: size * 1.9, height: size * 1.6)
                 .contentShape(Rectangle())
         }
-        .buttonStyle(PressableStyle())
+        .buttonStyle(PressableStyle(highlight: .circle))
     }
 
     private func progress(current: TimeInterval) -> some View {

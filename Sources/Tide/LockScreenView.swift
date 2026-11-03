@@ -284,7 +284,7 @@ struct ControlButton: View {
                 .frame(width: size * 2, height: size * 2)
                 .contentShape(Circle())
         }
-        .buttonStyle(PressableStyle())
+        .buttonStyle(PressableStyle(highlight: .circle))
     }
 }
 

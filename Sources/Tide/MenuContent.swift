@@ -214,7 +214,7 @@ struct MenuContent: View {
                         .frame(width: 30, height: 30)
                         .contentShape(Circle())
                 }
-                .buttonStyle(PressableStyle())
+                .buttonStyle(PressableStyle(highlight: .circle))
             }
         }
     }

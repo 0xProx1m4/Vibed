@@ -47,11 +47,79 @@ private struct FallbackGlass<S: Shape>: ViewModifier {
     }
 }
 
-/// Bouton qui se « tasse » quand on appuie, comme sur iOS.
+/// Forme du halo affiché derrière un bouton survolé.
+enum HoverHighlight {
+    /// Pas de halo : le bouton s'éclaircit légèrement.
+    case none
+    /// Pastille ronde derrière une icône (commandes de lecture).
+    case circle
+    /// Fond arrondi derrière une ligne (listes).
+    case rounded(CGFloat)
+}
+
+/// Bouton qui réagit au survol (halo doux, icône plus nette, léger grossissement)
+/// et se « tasse » quand on appuie, comme sur iOS.
 struct PressableStyle: ButtonStyle {
+    var highlight: HoverHighlight = .none
+
     func makeBody(configuration: Configuration) -> some View {
+        PressableBody(configuration: configuration, highlight: highlight)
+    }
+}
+
+private struct PressableBody: View {
+    let configuration: ButtonStyleConfiguration
+    let highlight: HoverHighlight
+    @State private var isHovered = false
+    @Environment(\.isEnabled) private var isEnabled
+
+    private var hovered: Bool { isHovered && isEnabled }
+    private var pressed: Bool { configuration.isPressed }
+
+    private var fillOpacity: Double {
+        pressed ? 0.24 : (hovered ? 0.14 : 0)
+    }
+
+    private var scale: CGFloat {
+        if pressed { return 0.88 }
+        if case .circle = highlight, hovered { return 1.08 }
+        return 1
+    }
+
+    var body: some View {
         configuration.label
-            .scaleEffect(configuration.isPressed ? 0.86 : 1)
-            .animation(.spring(response: 0.25, dampingFraction: 0.6), value: configuration.isPressed)
+            .opacity(labelOpacity)
+            .brightness(highlightIsNone && hovered ? 0.06 : 0)
+            .background { halo }
+            .scaleEffect(scale)
+            .onHover { isHovered = $0 }
+            .animation(.easeOut(duration: 0.16), value: hovered)
+            .animation(.spring(response: 0.25, dampingFraction: 0.6), value: pressed)
+    }
+
+    private var highlightIsNone: Bool {
+        if case .none = highlight { return true }
+        return false
+    }
+
+    /// Les icônes sont un peu atténuées au repos et deviennent pleinement blanches au survol.
+    private var labelOpacity: Double {
+        guard !highlightIsNone else { return 1 }
+        return hovered || pressed ? 1 : 0.86
+    }
+
+    @ViewBuilder
+    private var halo: some View {
+        switch highlight {
+        case .none:
+            EmptyView()
+        case .circle:
+            Circle()
+                .fill(.white.opacity(fillOpacity))
+                .scaleEffect(hovered || pressed ? 1 : 0.7)
+        case .rounded(let radius):
+            RoundedRectangle(cornerRadius: radius, style: .continuous)
+                .fill(.white.opacity(fillOpacity))
+        }
     }
 }
