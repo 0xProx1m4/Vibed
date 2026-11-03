@@ -3,7 +3,6 @@ import SwiftUI
 struct LockScreenView: View {
     @ObservedObject private var spotify = SpotifyController.shared
     @ObservedObject private var lock = LockScreenManager.shared
-    @State private var appeared = false
 
     var body: some View {
         GeometryReader { geo in
@@ -36,15 +35,10 @@ struct LockScreenView: View {
                         .padding(.bottom, 36 * s)
                 }
                 .frame(maxWidth: .infinity)
-                .opacity(appeared ? 1 : 0)
-                .scaleEffect(appeared ? 1 : 0.96)
             }
             .frame(width: geo.size.width, height: geo.size.height)
         }
         .ignoresSafeArea()
-        .onAppear {
-            withAnimation(.spring(response: 0.9, dampingFraction: 0.9).delay(0.05)) { appeared = true }
-        }
     }
 }
 
@@ -53,9 +47,17 @@ struct LockScreenView: View {
 /// Pochette agrandie plein écran, légèrement floutée, qui dérive lentement.
 struct AlbumBackground: View {
     let image: NSImage?
-    @State private var drift = false
+    private static let driftPeriod: TimeInterval = 20
 
     var body: some View {
+        TimelineView(.periodic(from: .now, by: Self.driftPeriod)) { ctx in
+            let drift = Int(ctx.date.timeIntervalSinceReferenceDate / Self.driftPeriod) % 2 == 1
+            content(drift: drift)
+                .animation(.easeInOut(duration: Self.driftPeriod), value: drift)
+        }
+    }
+
+    private func content(drift: Bool) -> some View {
         GeometryReader { geo in
             ZStack {
                 Color.black
@@ -92,9 +94,6 @@ struct AlbumBackground: View {
                 )
             }
             .animation(.easeInOut(duration: 1.2), value: image.map { ObjectIdentifier($0) })
-        }
-        .onAppear {
-            withAnimation(.easeInOut(duration: 40).repeatForever(autoreverses: true)) { drift = true }
         }
     }
 }
@@ -186,7 +185,7 @@ struct PlayerCard: View {
     let track: Track
     let width: CGFloat
     let s: CGFloat
-    @State private var scrub: TimeInterval?
+    private var scrub: TimeInterval? { spotify.scrubPosition }
 
     var body: some View {
         VStack(spacing: 10 * s) {
@@ -250,12 +249,12 @@ struct PlayerCard: View {
                 .gesture(
                     DragGesture(minimumDistance: 0)
                         .onChanged { value in
-                            scrub = min(max(value.location.x / g.size.width, 0), 1) * duration
+                            spotify.scrubPosition = min(max(value.location.x / g.size.width, 0), 1) * duration
                         }
                         .onEnded { value in
                             let target = min(max(value.location.x / g.size.width, 0), 1) * duration
                             spotify.seek(to: target)
-                            scrub = nil
+                            spotify.scrubPosition = nil
                         }
                 )
                 .animation(.spring(response: 0.25), value: scrub == nil)
@@ -279,19 +278,15 @@ struct ControlButton: View {
     let systemName: String
     let size: CGFloat
     let action: () -> Void
-    @State private var hovering = false
 
     var body: some View {
         Button(action: action) {
             Image(systemName: systemName)
                 .font(.system(size: size, weight: .semibold))
                 .frame(width: size * 2, height: size * 2)
-                .background(Circle().fill(.white.opacity(hovering ? 0.14 : 0)))
                 .contentShape(Circle())
         }
         .buttonStyle(PressableStyle())
-        .onHover { hovering = $0 }
-        .animation(.easeOut(duration: 0.15), value: hovering)
     }
 }
 

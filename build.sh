@@ -3,6 +3,12 @@
 set -euo pipefail
 cd "$(dirname "$0")"
 
+# Utilise Xcode complet s'il est installé (les Command Line Tools seuls
+# n'incluent pas tous les plugins SwiftUI).
+if [ -z "${DEVELOPER_DIR:-}" ] && [ -d /Applications/Xcode.app ]; then
+  export DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer
+fi
+
 swift build -c release
 BIN_DIR="$(swift build -c release --show-bin-path)"
 

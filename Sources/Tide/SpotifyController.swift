@@ -19,6 +19,8 @@ final class SpotifyController: ObservableObject {
     @Published private(set) var track: Track?
     @Published private(set) var isPlaying = false
     @Published private(set) var artwork: NSImage?
+    /// Position pendant que l'utilisateur fait glisser la barre de progression.
+    @Published var scrubPosition: TimeInterval?
 
     private var position: TimeInterval = 0
     private var positionDate = Date()
