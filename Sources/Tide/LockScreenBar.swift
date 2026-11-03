@@ -160,14 +160,11 @@ private struct LockBarContent: View {
                 CompactPlayer(track: track, s: s)
                     .frame(width: width, height: height)
                     .liquidGlass(cornerRadius: cornerRadius, darkness: 0.28)
-                    .overlay(alignment: .bottomTrailing) {
-                        if outputs.isPickerVisible {
-                            OutputPopover(s: s)
-                                .offset(x: -4 * s, y: -(height + 8 * s))
-                                .transition(
-                                    .scale(scale: 0.6, anchor: .bottomTrailing)
-                                        .combined(with: .opacity)
-                                )
+                    .overlayPreferenceValue(OutputButtonAnchorKey.self) { anchor in
+                        GeometryReader { proxy in
+                            if outputs.isPickerVisible, let anchor {
+                                popover(button: proxy[anchor], barWidth: proxy.size.width)
+                            }
                         }
                     }
                     .padding(.top, margin + popoverSpace)
@@ -176,6 +173,75 @@ private struct LockBarContent: View {
         }
         .animation(.easeInOut(duration: 0.3), value: spotify.track?.id)
         .animation(.spring(response: 0.32, dampingFraction: 0.82), value: outputs.isPickerVisible)
+    }
+
+    /// Pop-up posé juste au-dessus du bouton 💻, sa flèche pointant sur le bouton.
+    /// Il s'aligne sur le bord droit de la barre tant que la flèche peut rester sous le bouton.
+    private func popover(button: CGRect, barWidth: CGFloat) -> some View {
+        let size = OutputPopover.size(s: s, rows: OutputPopover.visibleRows(outputs.devices.count))
+        let gap = 4 * s
+        let minX = min(max(button.midX - size.width / 2, 0), max(barWidth - size.width, 0))
+        let tipY = button.minY - gap
+        let arrowX = OutputPopover.clampArrow(button.midX - minX, width: size.width, s: s)
+
+        return OutputPopover(s: s, arrowX: arrowX)
+            .frame(width: size.width, height: size.height)
+            .transition(
+                .scale(scale: 0.5, anchor: UnitPoint(x: arrowX / size.width, y: 1))
+                    .combined(with: .opacity)
+            )
+            .position(x: minX + size.width / 2, y: tipY - size.height / 2)
+    }
+}
+
+/// Position du bouton 💻 dans la barre, pour y accrocher le pop-up.
+private struct OutputButtonAnchorKey: PreferenceKey {
+    static let defaultValue: Anchor<CGRect>? = nil
+    static func reduce(value: inout Anchor<CGRect>?, nextValue: () -> Anchor<CGRect>?) {
+        value = value ?? nextValue()
+    }
+}
+
+/// Bulle à coins arrondis avec une petite flèche en bas, comme les popovers de macOS.
+private struct PopoverShape: Shape {
+    var cornerRadius: CGFloat
+    /// Abscisse de la pointe, depuis le bord gauche.
+    var arrowX: CGFloat
+    var arrowWidth: CGFloat
+    var arrowHeight: CGFloat
+
+    func path(in rect: CGRect) -> Path {
+        let body = CGRect(x: rect.minX, y: rect.minY, width: rect.width, height: rect.height - arrowHeight)
+        let r = min(cornerRadius, body.height / 2, body.width / 2)
+        let ax = rect.minX + arrowX
+        let half = arrowWidth / 2
+        let tip = CGPoint(x: ax, y: rect.maxY)
+
+        var p = Path()
+        p.move(to: CGPoint(x: body.minX + r, y: body.minY))
+        p.addLine(to: CGPoint(x: body.maxX - r, y: body.minY))
+        p.addArc(tangent1End: CGPoint(x: body.maxX, y: body.minY),
+                 tangent2End: CGPoint(x: body.maxX, y: body.minY + r), radius: r)
+        p.addLine(to: CGPoint(x: body.maxX, y: body.maxY - r))
+        p.addArc(tangent1End: CGPoint(x: body.maxX, y: body.maxY),
+                 tangent2End: CGPoint(x: body.maxX - r, y: body.maxY), radius: r)
+        // Flèche : flancs adoucis et pointe arrondie
+        p.addLine(to: CGPoint(x: ax + half, y: body.maxY))
+        p.addCurve(to: CGPoint(x: ax + half * 0.22, y: tip.y - arrowHeight * 0.12),
+                   control1: CGPoint(x: ax + half * 0.55, y: body.maxY),
+                   control2: CGPoint(x: ax + half * 0.4, y: tip.y - arrowHeight * 0.3))
+        p.addQuadCurve(to: CGPoint(x: ax - half * 0.22, y: tip.y - arrowHeight * 0.12), control: tip)
+        p.addCurve(to: CGPoint(x: ax - half, y: body.maxY),
+                   control1: CGPoint(x: ax - half * 0.4, y: tip.y - arrowHeight * 0.3),
+                   control2: CGPoint(x: ax - half * 0.55, y: body.maxY))
+        p.addLine(to: CGPoint(x: body.minX + r, y: body.maxY))
+        p.addArc(tangent1End: CGPoint(x: body.minX, y: body.maxY),
+                 tangent2End: CGPoint(x: body.minX, y: body.maxY - r), radius: r)
+        p.addLine(to: CGPoint(x: body.minX, y: body.minY + r))
+        p.addArc(tangent1End: CGPoint(x: body.minX, y: body.minY),
+                 tangent2End: CGPoint(x: body.minX + r, y: body.minY), radius: r)
+        p.closeSubpath()
+        return p
     }
 }
 
@@ -208,18 +274,40 @@ private struct TimeBubble: View {
 private struct OutputPopover: View {
     @ObservedObject private var outputs = AudioOutputs.shared
     let s: CGFloat
+    /// Abscisse de la pointe de la flèche, depuis le bord gauche du pop-up.
+    var arrowX: CGFloat
 
     static let maxVisibleRows = 5
     static func rowHeight(s: CGFloat) -> CGFloat { 30 * s }
     static func width(s: CGFloat) -> CGFloat { 196 * s }
-    /// Hauteur maximale (en-tête + lignes visibles + marges), pour réserver la place dans le panneau.
-    static func maxHeight(s: CGFloat) -> CGFloat {
-        headerHeight(s: s) + CGFloat(maxVisibleRows) * rowHeight(s: s) + 14 * s
-    }
+    static func arrowHeight(s: CGFloat) -> CGFloat { 7 * s }
+    static func arrowWidth(s: CGFloat) -> CGFloat { 18 * s }
+    static func cornerRadius(s: CGFloat) -> CGFloat { 14 * s }
     private static func headerHeight(s: CGFloat) -> CGFloat { 24 * s }
+    private static func verticalPadding(s: CGFloat) -> CGFloat { 14 * s } // 5 en haut, 9 en bas
+
+    static func visibleRows(_ count: Int) -> Int { max(min(count, maxVisibleRows), 1) }
+
+    /// Taille totale, flèche comprise.
+    static func size(s: CGFloat, rows: Int) -> CGSize {
+        CGSize(width: width(s: s),
+               height: headerHeight(s: s) + CGFloat(rows) * rowHeight(s: s)
+                   + verticalPadding(s: s) + arrowHeight(s: s))
+    }
+
+    /// Hauteur maximale, pour réserver la place dans le panneau.
+    static func maxHeight(s: CGFloat) -> CGFloat { size(s: s, rows: maxVisibleRows).height }
+
+    /// Garde la flèche sur la partie droite du bord, hors des coins arrondis.
+    static func clampArrow(_ x: CGFloat, width: CGFloat, s: CGFloat) -> CGFloat {
+        let margin = cornerRadius(s: s) + arrowWidth(s: s) / 2
+        return min(max(x, margin), width - margin)
+    }
 
     var body: some View {
-        let rows = max(min(outputs.devices.count, Self.maxVisibleRows), 1)
+        let rows = Self.visibleRows(outputs.devices.count)
+        let shape = PopoverShape(cornerRadius: Self.cornerRadius(s: s), arrowX: arrowX,
+                                 arrowWidth: Self.arrowWidth(s: s), arrowHeight: Self.arrowHeight(s: s))
 
         VStack(alignment: .leading, spacing: 0) {
             Text("Sortie audio")
@@ -247,9 +335,9 @@ private struct OutputPopover: View {
         .foregroundStyle(.white)
         .padding(.horizontal, 6 * s)
         .padding(.top, 5 * s)
-        .padding(.bottom, 9 * s)
-        .frame(width: Self.width(s: s), alignment: .leading)
-        .liquidGlass(cornerRadius: 14 * s, darkness: 0.38)
+        .padding(.bottom, 9 * s + Self.arrowHeight(s: s))
+        .frame(width: Self.width(s: s), alignment: .topLeading)
+        .liquidGlass(shape, darkness: 0.38)
         .shadow(color: .black.opacity(0.3), radius: 18 * s, y: 8 * s)
     }
 
@@ -331,7 +419,7 @@ private struct CompactPlayer: View {
                 }
                 Spacer(minLength: 0)
                 button(outputs.current?.symbol ?? "laptopcomputer", size: 13 * s, edge: .trailing,
-                       active: outputs.isPickerVisible) {
+                       active: outputs.isPickerVisible, reportsAnchor: true) {
                     if !outputs.isPickerVisible { outputs.refresh() }
                     outputs.isPickerVisible.toggle()
                 }
@@ -345,7 +433,8 @@ private struct CompactPlayer: View {
     /// `edge` : les boutons des côtés débordent un peu dans la marge, pour que l'icône
     /// (et non sa zone cliquable) s'aligne sur le bord de la barre de progression.
     private func button(_ symbol: String, size: CGFloat, edge: HorizontalEdge? = nil,
-                        active: Bool = false, action: @escaping () -> Void) -> some View {
+                        active: Bool = false, reportsAnchor: Bool = false,
+                        action: @escaping () -> Void) -> some View {
         let side = size * 1.65
         let inset = (side - size) / 2
         return Button(action: action) {
@@ -356,6 +445,7 @@ private struct CompactPlayer: View {
                 .contentShape(Circle())
         }
         .buttonStyle(PressableStyle(highlight: .circle))
+        .anchorPreference(key: OutputButtonAnchorKey.self, value: .bounds) { reportsAnchor ? $0 : nil }
         .padding(edge == .leading ? .leading : .trailing, edge == nil ? 0 : -inset)
         .animation(.easeOut(duration: 0.16), value: active)
     }
