@@ -32,6 +32,8 @@ final class SpotifyController: ObservableObject {
     @Published private(set) var lastError: String?
     /// Position pendant que l'utilisateur fait glisser la barre de progression.
     @Published var scrubPosition: TimeInterval?
+    /// Position survolée sur la barre de progression (0…1), pour la bulle de temps.
+    @Published var hoverProgress: Double?
     /// Morceaux likés depuis Tide (Spotify ne permet pas de lire cet état de l'extérieur).
     @Published private(set) var likedTrackIDs: Set<String> = []
 

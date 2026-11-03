@@ -17,6 +17,7 @@ private final class LockBarPanel: NSPanel {
         isReleasedWhenClosed = false
         hidesOnDeactivate = false
         canBecomeVisibleWithoutLogin = true
+        acceptsMouseMovedEvents = true // survol de la barre de progression
         appearance = NSAppearance(named: .darkAqua)
         collectionBehavior = [.fullScreenAuxiliary, .stationary, .canJoinAllSpaces, .ignoresCycle]
     }
@@ -72,6 +73,7 @@ final class LockScreenBar {
     private func screenUnlocked() {
         isLocked = false
         AudioOutputs.shared.isPickerVisible = false
+        SpotifyController.shared.hoverProgress = nil
         // Petit délai pour éviter un clignotement pendant l'animation de déverrouillage.
         unlockTask?.cancel()
         unlockTask = Task { @MainActor [weak self] in
@@ -155,6 +157,24 @@ private struct LockBarContent: View {
         }
         .animation(.easeInOut(duration: 0.3), value: spotify.track?.id)
         .animation(.easeInOut(duration: 0.2), value: outputs.isPickerVisible)
+    }
+}
+
+/// Petite bulle de temps au survol de la barre de progression, façon Apple.
+private struct TimeBubble: View {
+    let text: String
+    let s: CGFloat
+
+    var body: some View {
+        Text(text)
+            .font(.system(size: 9 * s, weight: .semibold).monospacedDigit())
+            .foregroundStyle(.white)
+            .padding(.horizontal, 6 * s)
+            .padding(.vertical, 2.5 * s)
+            .fixedSize()
+            .liquidGlass(Capsule(), darkness: 0.4)
+            .shadow(color: .black.opacity(0.25), radius: 4 * s, y: 2 * s)
+            .allowsHitTesting(false)
     }
 }
 
@@ -289,33 +309,67 @@ private struct CompactPlayer: View {
         let duration = max(track.duration, 0.001)
         let fraction = min(max(current / duration, 0), 1)
         let scrubbing = spotify.scrubPosition != nil
+        let hover = spotify.hoverProgress
+        let active = scrubbing || hover != nil
+        // Bulle : position survolée, ou position en cours pendant le glisser.
+        let bubble: Double? = scrubbing ? fraction : hover
 
         return HStack(spacing: 7 * s) {
             Text(PlayerCard.format(current))
             GeometryReader { g in
+                let width = g.size.width
                 ZStack(alignment: .leading) {
-                    Capsule().fill(.white.opacity(0.25))
-                    Capsule().fill(.white.opacity(0.9)).frame(width: g.size.width * fraction)
+                    Capsule().fill(.white.opacity(0.22))
+                    // Aperçu discret jusqu'au point survolé
+                    if let hover, !scrubbing, hover > fraction {
+                        Capsule().fill(.white.opacity(0.16))
+                            .frame(width: width * hover)
+                    }
+                    Capsule().fill(.white.opacity(active ? 1 : 0.88))
+                        .frame(width: width * fraction)
                 }
-                .frame(height: (scrubbing ? 6 : 3.5) * s)
-                .frame(maxHeight: .infinity)
+                .frame(height: (active ? 6 : 3.5) * s)
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .overlay {
+                    if let bubble {
+                        TimeBubble(text: PlayerCard.format(bubble * duration), s: s)
+                            .position(x: Self.clampBubble(bubble * width, width: width, s: s), y: -9 * s)
+                            .transition(.opacity.combined(with: .scale(scale: 0.85, anchor: .bottom)))
+                    }
+                }
                 .contentShape(Rectangle())
+                .onContinuousHover { phase in
+                    switch phase {
+                    case .active(let location):
+                        spotify.hoverProgress = min(max(location.x / width, 0), 1)
+                    case .ended:
+                        spotify.hoverProgress = nil
+                    }
+                }
                 .gesture(
                     DragGesture(minimumDistance: 0)
                         .onChanged { value in
-                            spotify.scrubPosition = min(max(value.location.x / g.size.width, 0), 1) * duration
+                            spotify.scrubPosition = min(max(value.location.x / width, 0), 1) * duration
                         }
                         .onEnded { value in
-                            spotify.seek(to: min(max(value.location.x / g.size.width, 0), 1) * duration)
+                            spotify.seek(to: min(max(value.location.x / width, 0), 1) * duration)
                             spotify.scrubPosition = nil
                         }
                 )
-                .animation(.spring(response: 0.25), value: scrubbing)
+                .animation(.spring(response: 0.3, dampingFraction: 0.8), value: active)
+                .animation(.easeOut(duration: 0.15), value: bubble == nil)
             }
             .frame(height: 12 * s)
             Text("-" + PlayerCard.format(track.duration - current))
         }
         .font(.system(size: 8.5 * s, weight: .medium).monospacedDigit())
         .foregroundStyle(.white.opacity(0.7))
+    }
+
+    /// Garde la bulle entièrement au-dessus de la barre (pas de débordement aux extrémités).
+    private static func clampBubble(_ x: CGFloat, width: CGFloat, s: CGFloat) -> CGFloat {
+        let half = 15 * s
+        guard width > half * 2 else { return width / 2 }
+        return min(max(x, half), width - half)
     }
 }
