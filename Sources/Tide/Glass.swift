@@ -70,7 +70,13 @@ struct PressableStyle: ButtonStyle {
 private struct PressableBody: View {
     let configuration: ButtonStyleConfiguration
     let highlight: HoverHighlight
-    @State private var isHovered = false
+    // `State` déclaré sans `@` : avec le SDK macOS 27, `@State` est une macro dont le
+    // plugin n'existe que dans Xcode, pas dans les Command Line Tools.
+    private let hoverState = State(initialValue: false)
+    private var isHovered: Bool {
+        get { hoverState.wrappedValue }
+        nonmutating set { hoverState.wrappedValue = newValue }
+    }
     @Environment(\.isEnabled) private var isEnabled
 
     private var hovered: Bool { isHovered && isEnabled }
