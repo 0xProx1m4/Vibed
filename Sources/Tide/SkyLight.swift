@@ -6,10 +6,10 @@ import Darwin
 /// Les fonctions sont chargées dynamiquement : si macOS les retire, tout est simplement désactivé.
 enum SkyLight {
     /// Niveaux absolus des « espaces » du serveur de fenêtres.
-    /// L'écran de verrouillage est à 300 : il faut être au-dessus.
-    private enum SpaceLevel: Int32 {
-        case screenLock = 300
-        case notificationCenterAtScreenLock = 400
+    /// L'écran de verrouillage est à 300.
+    enum SpaceLevel {
+        static let screenLock: Int32 = 300
+        static let notificationCenterAtScreenLock: Int32 = 400
     }
 
     private typealias MainConnectionID = @convention(c) () -> Int32
@@ -28,7 +28,9 @@ enum SkyLight {
 
     private struct API {
         let connection: Int32
-        let space: Int32
+        let spaceCreate: SpaceCreate
+        let setLevel: SpaceSetAbsoluteLevel
+        let showSpaces: ShowSpaces
         let addWindows: AddWindowsToSpace
         let removeWindows: RemoveWindowsFromSpaces?
     }
@@ -40,32 +42,46 @@ enum SkyLight {
               let showSpaces = load("SLSShowSpaces", as: ShowSpaces.self),
               let addWindows = load("SLSSpaceAddWindowsAndRemoveFromSpaces", as: AddWindowsToSpace.self)
         else {
-            NSLog("Tide – SkyLight indisponible, la barre ne peut pas s'afficher sur l'écran verrouillé")
+            NSLog("Tide – SkyLight indisponible, rien ne peut s'afficher sur l'écran verrouillé")
             return nil
         }
-        let connection = mainConnection()
-        let space = spaceCreate(connection, 1, 0)
-        _ = setLevel(connection, space, SpaceLevel.notificationCenterAtScreenLock.rawValue)
-        _ = showSpaces(connection, [space] as CFArray)
         return API(
-            connection: connection,
-            space: space,
+            connection: mainConnection(),
+            spaceCreate: spaceCreate,
+            setLevel: setLevel,
+            showSpaces: showSpaces,
             addWindows: addWindows,
             removeWindows: load("SLSRemoveWindowsFromSpaces", as: RemoveWindowsFromSpaces.self)
         )
     }()
 
+    /// Un espace par niveau, créé à la première utilisation.
+    @MainActor private static var spaces: [Int32: Int32] = [:]
+
     static var isAvailable: Bool { api != nil }
 
-    /// Place la fenêtre (déjà affichée) dans l'espace situé au-dessus de l'écran de verrouillage.
-    static func delegate(_ window: NSWindow) {
-        guard let api, window.windowNumber > 0 else { return }
-        _ = api.addWindows(api.connection, api.space, [window.windowNumber] as CFArray, 7)
+    @MainActor private static func space(level: Int32) -> Int32? {
+        guard let api else { return nil }
+        if let space = spaces[level] { return space }
+        let space = api.spaceCreate(api.connection, 1, 0)
+        _ = api.setLevel(api.connection, space, level)
+        _ = api.showSpaces(api.connection, [space] as CFArray)
+        spaces[level] = space
+        return space
+    }
+
+    /// Place la fenêtre (déjà affichée) dans un espace du niveau donné. Renvoie l'espace,
+    /// à repasser à `undelegate`.
+    @MainActor @discardableResult
+    static func delegate(_ window: NSWindow, level: Int32 = SpaceLevel.notificationCenterAtScreenLock) -> Int32? {
+        guard let api, window.windowNumber > 0, let space = space(level: level) else { return nil }
+        _ = api.addWindows(api.connection, space, [window.windowNumber] as CFArray, 7)
+        return space
     }
 
     /// Retire la fenêtre de cet espace.
-    static func undelegate(_ window: NSWindow) {
+    @MainActor static func undelegate(_ window: NSWindow, from space: Int32) {
         guard let api, let remove = api.removeWindows, window.windowNumber > 0 else { return }
-        _ = remove(api.connection, [window.windowNumber] as CFArray, [api.space] as CFArray)
+        _ = remove(api.connection, [window.windowNumber] as CFArray, [space] as CFArray)
     }
 }

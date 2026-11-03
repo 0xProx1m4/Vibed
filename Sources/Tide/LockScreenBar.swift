@@ -39,7 +39,8 @@ final class LockScreenBar {
 
     private var panel: LockBarPanel?
     private var isLocked = false
-    private var isDelegated = false
+    /// Espace SkyLight où la barre a été placée.
+    private var space: Int32?
     private var unlockTask: Task<Void, Never>?
 
     func start() {
@@ -65,9 +66,8 @@ final class LockScreenBar {
         layout(panel, on: screen)
         panel.orderFrontRegardless()
 
-        if !isDelegated {
-            SkyLight.delegate(panel)
-            isDelegated = true
+        if space == nil {
+            space = SkyLight.delegate(panel)
         }
     }
 
@@ -80,9 +80,9 @@ final class LockScreenBar {
         unlockTask = Task { @MainActor [weak self] in
             try? await Task.sleep(nanoseconds: 150_000_000)
             guard let self, !Task.isCancelled, !self.isLocked, let panel = self.panel else { return }
-            if self.isDelegated {
-                SkyLight.undelegate(panel)
-                self.isDelegated = false
+            if let space = self.space {
+                SkyLight.undelegate(panel, from: space)
+                self.space = nil
             }
             panel.orderOut(nil)
         }

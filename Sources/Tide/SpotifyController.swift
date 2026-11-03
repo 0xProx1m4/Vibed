@@ -1,6 +1,7 @@
 import AppKit
 import Combine
 import CoreServices
+import ImageIO
 
 struct Track: Equatable {
     let id: String
@@ -51,6 +52,9 @@ final class SpotifyController: ObservableObject {
     /// Le chargement en cours part de la vraie URL (et non d'une recherche oEmbed).
     private var artworkHasURL = false
     private var artworkCache: [String: NSImage] = [:]
+    private var prefetchTask: Task<Void, Never>?
+    /// Morceaux dont la pochette est en cours de préchargement.
+    private var prefetching: Set<String> = []
     private var accessCheckInFlight = false
 
     private static let bundleID = "com.spotify.client"
@@ -288,7 +292,10 @@ final class SpotifyController: ObservableObject {
     private func update(track newTrack: Track, artworkURL: URL?, playing: Bool, position newPosition: TimeInterval) {
         let trackChanged = newTrack.id != track?.id
         if newTrack != track { track = newTrack }
-        if trackChanged { refreshLikedState() }
+        if trackChanged {
+            refreshLikedState()
+            prefetchUpcomingArtwork()
+        }
         if playing != isPlaying { isPlaying = playing }
         position = newPosition
         positionDate = Date()
@@ -340,9 +347,33 @@ final class SpotifyController: ObservableObject {
             let best = await hiResDownload
             guard !Task.isCancelled, let self, self.artworkTrackID == trackID else { return }
             if let best { self.artwork = best }
-            if let image = best ?? self.artwork {
-                if self.artworkCache.count > 40 { self.artworkCache.removeAll() }
-                self.artworkCache[trackID] = image
+            if let image = best ?? self.artwork { self.cache(image, for: trackID) }
+        }
+    }
+
+    private func cache(_ image: NSImage, for trackID: String) {
+        if artworkCache.count > 40 { artworkCache.removeAll() }
+        artworkCache[trackID] = image
+    }
+
+    /// Télécharge à l'avance les pochettes des prochains morceaux de la file (compte Spotify
+    /// connecté) : au changement de morceau, la pochette est déjà là et s'affiche tout de suite.
+    private func prefetchUpcomingArtwork() {
+        guard SpotifyWebAPI.shared.isConnected else { return }
+        prefetchTask?.cancel()
+        prefetchTask = Task { [weak self] in
+            // Laisse d'abord passer le chargement de la pochette du morceau en cours.
+            try? await Task.sleep(nanoseconds: 1_500_000_000)
+            guard !Task.isCancelled else { return }
+            let upcoming = await SpotifyWebAPI.shared.upcomingArtwork(limit: 3)
+            for (uri, url) in upcoming {
+                guard !Task.isCancelled, let self,
+                      self.artworkCache[uri] == nil, !self.prefetching.contains(uri) else { continue }
+                self.prefetching.insert(uri)
+                var image = await Self.downloadImage(Self.highResolutionURL(for: url))
+                if image == nil { image = await Self.downloadImage(url) }
+                self.prefetching.remove(uri)
+                if let image, self.artworkCache[uri] == nil { self.cache(image, for: uri) }
             }
         }
     }
@@ -356,11 +387,17 @@ final class SpotifyController: ObservableObject {
         return hiRes == string ? nil : URL(string: hiRes)
     }
 
+    /// Télécharge et décode l'image hors du thread principal : elle s'affiche ensuite
+    /// sans à-coup (une NSImage ordinaire ne se décode qu'au premier affichage).
     nonisolated private static func downloadImage(_ url: URL?) async -> NSImage? {
         guard let url else { return nil }
         guard let (data, response) = try? await URLSession.shared.data(from: url),
               (response as? HTTPURLResponse)?.statusCode ?? 200 == 200 else { return nil }
-        return NSImage(data: data)
+        guard let source = CGImageSourceCreateWithData(data as CFData, nil),
+              let image = CGImageSourceCreateImageAtIndex(source, 0, [
+                  kCGImageSourceShouldCacheImmediately: true,
+              ] as CFDictionary) else { return NSImage(data: data) }
+        return NSImage(cgImage: image, size: NSSize(width: image.width, height: image.height))
     }
 
     /// Pochette via l'API publique oEmbed de Spotify (sans compte ni clé).

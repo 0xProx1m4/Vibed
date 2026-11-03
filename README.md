@@ -37,6 +37,24 @@ pour ça : Tide passe par une fonction privée du serveur de fenêtres (SkyLight
 technique que d'autres apps de la barre des menus. Si une mise à jour de macOS la casse, la
 barre ne s'affiche simplement plus (le reste continue de marcher).
 
+#### Changement de morceau instantané
+
+- **Fond instantané (expérimental)** : en plus du fond d'écran, Tide dessine la pochette en plein
+  écran dans sa propre fenêtre, qui change aussitôt avec le morceau. Elle est placée au niveau de
+  l'écran verrouillé, avec l'idée de passer au-dessus du fond d'écran mais sous l'horloge et le
+  champ du mot de passe. Si elle n'apparaît pas, rien ne change (le fond d'écran reste dessous).
+  Pour essayer d'autres niveaux sans recompiler, puis verrouiller avec ⌃⌘Q :
+
+  ```bash
+  defaults write app.tide.lockscreen lockBackgroundSpaceLevel -int 300
+  defaults write app.tide.lockscreen lockBackgroundWindowLevel -int -2147483602
+  ```
+
+  Pour le désactiver : `defaults write app.tide.lockscreen instantBackground -bool false`.
+- **Pochettes préchargées** : avec le compte Spotify connecté, Tide télécharge à l'avance les
+  pochettes des prochains morceaux de la file. (Si tu étais connecté avant cette version, le menu
+  te demande de te reconnecter une fois pour donner ce droit.)
+
 Boutons de la barre : **♥**, **⏮ ⏯ ⏭**, et **💻 sortie audio** (haut‑parleurs du Mac, casque
 Bluetooth, AirPlay…).
 

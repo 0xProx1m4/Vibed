@@ -2,8 +2,8 @@ import AppKit
 import CryptoKit
 import Network
 
-/// Connexion au compte Spotify (API web) pour savoir si un morceau est déjà liké
-/// et pour liker / retirer un like de façon fiable.
+/// Connexion au compte Spotify (API web) pour savoir si un morceau est déjà liké,
+/// liker / retirer un like de façon fiable, et lire la file d'attente (pochettes préchargées).
 ///
 /// Authentification « Authorization Code + PKCE » : pas de secret, pas de mot de passe stocké.
 /// Le navigateur renvoie vers un mini serveur local (127.0.0.1) le temps de la connexion.
@@ -13,7 +13,7 @@ final class SpotifyWebAPI: ObservableObject {
 
     static let redirectPort: UInt16 = 43821
     static var redirectURI: String { "http://127.0.0.1:\(redirectPort)/callback" }
-    private static let scopes = "user-library-read user-library-modify"
+    private static let scopes = "user-library-read user-library-modify user-read-playback-state"
 
     @Published private(set) var isConnected = false
     @Published private(set) var isConnecting = false
@@ -102,11 +102,37 @@ final class SpotifyWebAPI: ObservableObject {
         await call(saved ? "PUT" : "DELETE", path: "/me/library", uris: [uri]) != nil
     }
 
-    private func call(_ method: String, path: String, uris: [String]) async -> Data? {
+    // MARK: - File d'attente
+
+    /// Le jeton actuel n'a pas le droit de lire la file (compte connecté avant l'ajout de ce droit).
+    @Published private(set) var queueForbidden = false
+
+    /// Prochains morceaux de la file, avec l'URL de leur pochette (640 px).
+    /// Vide si le compte n'est pas connecté ou s'il faut se reconnecter pour donner ce droit.
+    func upcomingArtwork(limit: Int) async -> [(uri: String, url: URL)] {
+        guard !queueForbidden,
+              let data = await call("GET", path: "/me/player/queue", quiet: true),
+              let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let queue = json["queue"] as? [[String: Any]] else { return [] }
+
+        return queue.prefix(limit).compactMap { item in
+            guard let uri = item["uri"] as? String,
+                  let album = item["album"] as? [String: Any],
+                  let images = album["images"] as? [[String: Any]] else { return nil }
+            // Les images vont de la plus grande à la plus petite ; on prend la 640 px.
+            let pick = images.first { ($0["width"] as? Int) == 640 } ?? images.first
+            guard let string = pick?["url"] as? String, let url = URL(string: string) else { return nil }
+            return (uri, url)
+        }
+    }
+
+    private func call(_ method: String, path: String, uris: [String]? = nil, quiet: Bool = false) async -> Data? {
         guard let token = await validAccessToken() else { return nil }
 
         var components = URLComponents(string: "https://api.spotify.com/v1" + path)!
-        components.queryItems = [URLQueryItem(name: "uris", value: uris.joined(separator: ","))]
+        if let uris {
+            components.queryItems = [URLQueryItem(name: "uris", value: uris.joined(separator: ","))]
+        }
         guard let url = components.url else { return nil }
 
         var request = URLRequest(url: url)
@@ -117,7 +143,9 @@ final class SpotifyWebAPI: ObservableObject {
         guard let (data, response) = try? await URLSession.shared.data(for: request),
               let http = response as? HTTPURLResponse else { return nil }
         if http.statusCode == 401 { accessToken = nil }
+        if http.statusCode == 403, path == "/me/player/queue" { queueForbidden = true }
         guard (200..<300).contains(http.statusCode) else {
+            guard !quiet else { return nil }
             let body = String(data: data, encoding: .utf8) ?? ""
             NSLog("Tide – API Spotify %@ %@ → %d %@", method, path, http.statusCode, body)
             lastError = "API Spotify : erreur \(http.statusCode)"
@@ -152,6 +180,7 @@ final class SpotifyWebAPI: ObservableObject {
         isConnected = status == 200 && refreshToken != nil
         if isConnected {
             lastError = nil
+            queueForbidden = false
             SpotifyController.shared.refreshLikedState()
         }
     }

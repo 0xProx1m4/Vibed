@@ -70,6 +70,12 @@ struct MenuContent: View {
                     Button("Se déconnecter") { webAPI.disconnect() }
                 }
                 .font(.system(size: 12))
+                if webAPI.queueForbidden {
+                    Text("Reconnecte-toi (Se déconnecter, puis Se connecter) pour que Tide précharge les pochettes des prochains morceaux.")
+                        .font(.system(size: 11))
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
             } else {
                 Text("Pour que le ♥ soit rempli quand un morceau est déjà liké :\n1. developer.spotify.com/dashboard → Create app\n2. Redirect URI : \(SpotifyWebAPI.redirectURI)\n3. Coche « Web API », enregistre, copie le Client ID ici :")
                     .font(.system(size: 11))
