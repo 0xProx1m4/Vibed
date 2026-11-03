@@ -39,6 +39,11 @@ pour ça : Tide passe par une fonction privée du serveur de fenêtres (SkyLight
 technique que d'autres apps de la barre des menus. Si une mise à jour de macOS la casse, la
 barre ne s'affiche simplement plus (le reste continue de marcher) : désactive‑la dans le menu.
 
+Boutons de la barre : **♥** (ajoute le morceau à tes Titres likés via le raccourci Spotify ⌥⇧B —
+nécessite l'autorisation Accessibilité, bouton dans le menu 🌊), **⏮ ⏯ ⏭**, et **💻 sortie audio**
+(haut‑parleurs du Mac, casque Bluetooth, AirPlay…). Spotify ne permettant pas de savoir de
+l'extérieur si un morceau est déjà liké, le cœur ne reflète que ce que tu as fait depuis Tide.
+
 ## Réglages (icône 🌊 dans la barre des menus)
 
 - **Pochette sur l'écran verrouillé** : active ou désactive le mode écran de verrouillage macOS.
@@ -99,6 +104,7 @@ Sources/Tide/
   WallpaperManager.swift   pochette → fond d'écran (vrai écran de verrouillage)
   WallpaperRenderer.swift  génération de l'image de fond
   LockScreenBar.swift      barre Liquid Glass sur le vrai écran verrouillé
+  AudioOutputs.swift       liste et choix de la sortie audio (CoreAudio)
   SkyLight.swift           accès privé au serveur de fenêtres (au-dessus du verrouillage)
   LockScreenManager.swift  fenêtres plein écran + Touch ID
   LockScreenView.swift     l'écran : fond, horloge, pochette, lecteur

@@ -71,6 +71,7 @@ final class LockScreenBar {
 
     private func screenUnlocked() {
         isLocked = false
+        AudioOutputs.shared.isPickerVisible = false
         // Petit délai pour éviter un clignotement pendant l'animation de déverrouillage.
         unlockTask?.cancel()
         unlockTask = Task { @MainActor [weak self] in
@@ -129,6 +130,7 @@ final class LockScreenBar {
 /// Contenu de la barre, uniquement si un morceau est chargé.
 private struct LockBarContent: View {
     @ObservedObject private var spotify = SpotifyController.shared
+    @ObservedObject private var outputs = AudioOutputs.shared
     let width: CGFloat
     let height: CGFloat
     let s: CGFloat
@@ -138,7 +140,13 @@ private struct LockBarContent: View {
         ZStack(alignment: .top) {
             Color.clear
             if let track = spotify.track {
-                CompactPlayer(track: track, s: s)
+                Group {
+                    if outputs.isPickerVisible {
+                        OutputPicker(s: s)
+                    } else {
+                        CompactPlayer(track: track, s: s)
+                    }
+                }
                     .frame(width: width, height: height)
                     .liquidGlass(cornerRadius: height * 0.13, darkness: 0.28)
                     .padding(.top, margin)
@@ -146,12 +154,69 @@ private struct LockBarContent: View {
             }
         }
         .animation(.easeInOut(duration: 0.3), value: spotify.track?.id)
+        .animation(.easeInOut(duration: 0.2), value: outputs.isPickerVisible)
+    }
+}
+
+/// Choix de la sortie audio, affiché à la place des commandes.
+private struct OutputPicker: View {
+    @ObservedObject private var outputs = AudioOutputs.shared
+    let s: CGFloat
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 4 * s) {
+            HStack {
+                Button { outputs.isPickerVisible = false } label: {
+                    Image(systemName: "chevron.left")
+                        .font(.system(size: 10 * s, weight: .bold))
+                        .frame(width: 18 * s, height: 18 * s)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(PressableStyle())
+                Text("Sortie audio")
+                    .font(.system(size: 11 * s, weight: .semibold))
+                Spacer()
+            }
+            ScrollView(.vertical, showsIndicators: false) {
+                VStack(spacing: 2 * s) {
+                    ForEach(outputs.devices) { device in
+                        Button { outputs.select(device) } label: {
+                            HStack(spacing: 8 * s) {
+                                Image(systemName: device.symbol)
+                                    .font(.system(size: 11 * s))
+                                    .frame(width: 18 * s)
+                                Text(device.name)
+                                    .font(.system(size: 10.5 * s, weight: .medium))
+                                    .lineLimit(1)
+                                Spacer(minLength: 0)
+                                if device.id == outputs.currentID {
+                                    Image(systemName: "checkmark")
+                                        .font(.system(size: 9 * s, weight: .bold))
+                                }
+                            }
+                            .padding(.vertical, 4 * s)
+                            .padding(.horizontal, 6 * s)
+                            .background(
+                                RoundedRectangle(cornerRadius: 6 * s, style: .continuous)
+                                    .fill(.white.opacity(device.id == outputs.currentID ? 0.14 : 0))
+                            )
+                            .contentShape(Rectangle())
+                        }
+                        .buttonStyle(PressableStyle())
+                    }
+                }
+            }
+        }
+        .foregroundStyle(.white)
+        .padding(.horizontal, 10 * s)
+        .padding(.vertical, 8 * s)
     }
 }
 
 /// Lecteur compact : titre/artiste, progression avec temps, puis ⏮ ⏯ ⏭.
 private struct CompactPlayer: View {
     @ObservedObject private var spotify = SpotifyController.shared
+    @ObservedObject private var outputs = AudioOutputs.shared
     let track: Track
     let s: CGFloat
 
@@ -187,10 +252,20 @@ private struct CompactPlayer: View {
 
             Spacer(minLength: 0)
 
-            HStack(spacing: 26 * s) {
-                button("backward.fill", size: 14 * s) { spotify.previous() }
-                button(spotify.isPlaying ? "pause.fill" : "play.fill", size: 19 * s) { spotify.playPause() }
-                button("forward.fill", size: 14 * s) { spotify.next() }
+            // ♥   ⏮ ⏯ ⏭   💻  — comme le lecteur de référence
+            HStack(spacing: 0) {
+                button(spotify.isCurrentTrackLiked ? "heart.fill" : "heart", size: 12 * s) { spotify.toggleLike() }
+                Spacer(minLength: 0)
+                HStack(spacing: 22 * s) {
+                    button("backward.fill", size: 14 * s) { spotify.previous() }
+                    button(spotify.isPlaying ? "pause.fill" : "play.fill", size: 19 * s) { spotify.playPause() }
+                    button("forward.fill", size: 14 * s) { spotify.next() }
+                }
+                Spacer(minLength: 0)
+                button(outputs.current?.symbol ?? "laptopcomputer", size: 12 * s) {
+                    outputs.refresh()
+                    outputs.isPickerVisible = true
+                }
             }
 
             Spacer(minLength: 0)

@@ -32,6 +32,14 @@ final class SpotifyController: ObservableObject {
     @Published private(set) var lastError: String?
     /// Position pendant que l'utilisateur fait glisser la barre de progression.
     @Published var scrubPosition: TimeInterval?
+    /// Morceaux likés depuis Tide (Spotify ne permet pas de lire cet état de l'extérieur).
+    @Published private(set) var likedTrackIDs: Set<String> = []
+
+    var isCurrentTrackLiked: Bool { track.map { likedTrackIDs.contains($0.id) } ?? false }
+
+    /// Le bouton ♥ envoie le raccourci « J'aime » de Spotify (⌥⇧B), ce qui demande
+    /// l'autorisation macOS d'envoyer des touches (Accessibilité).
+    var canLike: Bool { CGPreflightPostEventAccess() }
 
     private var position: TimeInterval = 0
     private var positionDate = Date()
@@ -93,6 +101,34 @@ final class SpotifyController: ObservableObject {
     }
 
     // MARK: - Commandes
+
+    func requestLikePermission() {
+        _ = CGRequestPostEventAccess()
+    }
+
+    /// Ajoute / retire le morceau des Titres likés via le raccourci de Spotify ⌥⇧B,
+    /// envoyé directement à l'app Spotify (pas besoin qu'elle soit au premier plan).
+    func toggleLike() {
+        guard let track,
+              let app = NSRunningApplication.runningApplications(withBundleIdentifier: Self.bundleID).first
+        else { return }
+        guard CGPreflightPostEventAccess() else {
+            requestLikePermission()
+            return
+        }
+        let source = CGEventSource(stateID: .hidSystemState)
+        let keyB: CGKeyCode = 11
+        for isDown in [true, false] {
+            let event = CGEvent(keyboardEventSource: source, virtualKey: keyB, keyDown: isDown)
+            event?.flags = [.maskAlternate, .maskShift]
+            event?.postToPid(app.processIdentifier)
+        }
+        if likedTrackIDs.contains(track.id) {
+            likedTrackIDs.remove(track.id)
+        } else {
+            likedTrackIDs.insert(track.id)
+        }
+    }
 
     func playPause() {
         freezePosition()

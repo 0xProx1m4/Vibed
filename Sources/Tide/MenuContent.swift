@@ -21,6 +21,12 @@ struct MenuContent: View {
                 sectionTitle("Écran de verrouillage macOS")
                 Toggle("Pochette sur l'écran verrouillé", isOn: $wallpaperMode)
                 Toggle("Barre Liquid Glass sur l'écran verrouillé", isOn: $lockScreenBar)
+                if lockScreenBar && !spotify.canLike {
+                    Button("Activer le bouton ♥ (autorisation Accessibilité)") {
+                        spotify.requestLikePermission()
+                    }
+                    .font(.system(size: 11))
+                }
                 if wallpaperMode {
                     Text("Ton fond d'écran n'est jamais modifié pendant que tu utilises le Mac. Verrouille avec ⌃⌘Q pour voir le résultat.")
                         .font(.system(size: 11))
