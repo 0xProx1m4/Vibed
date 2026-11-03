@@ -61,15 +61,18 @@ enum HoverHighlight {
 /// et se « tasse » quand on appuie, comme sur iOS.
 struct PressableStyle: ButtonStyle {
     var highlight: HoverHighlight = .none
+    /// Atténue légèrement le contenu au repos (icônes seules).
+    var dims = true
 
     func makeBody(configuration: Configuration) -> some View {
-        PressableBody(configuration: configuration, highlight: highlight)
+        PressableBody(configuration: configuration, highlight: highlight, dims: dims)
     }
 }
 
 private struct PressableBody: View {
     let configuration: ButtonStyleConfiguration
     let highlight: HoverHighlight
+    let dims: Bool
     // `State` déclaré sans `@` : avec le SDK macOS 27, `@State` est une macro dont le
     // plugin n'existe que dans Xcode, pas dans les Command Line Tools.
     private let hoverState = State(initialValue: false)
@@ -110,7 +113,7 @@ private struct PressableBody: View {
 
     /// Les icônes sont un peu atténuées au repos et deviennent pleinement blanches au survol.
     private var labelOpacity: Double {
-        guard !highlightIsNone else { return 1 }
+        guard dims, !highlightIsNone else { return 1 }
         return hovered || pressed ? 1 : 0.86
     }
 

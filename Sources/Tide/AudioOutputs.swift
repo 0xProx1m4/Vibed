@@ -25,7 +25,7 @@ final class AudioOutputs: ObservableObject {
 
     @Published private(set) var devices: [AudioOutput] = []
     @Published private(set) var currentID: AudioDeviceID = 0
-    /// Liste affichée à la place des commandes dans la barre.
+    /// Pop-up des sorties audio ouvert au-dessus de la barre.
     @Published var isPickerVisible = false
 
     var current: AudioOutput? { devices.first { $0.id == currentID } }
@@ -55,7 +55,11 @@ final class AudioOutputs: ObservableObject {
         AudioObjectSetPropertyData(AudioObjectID(kAudioObjectSystemObject), &address, 0, nil,
                                    UInt32(MemoryLayout<AudioDeviceID>.size), &id)
         refresh()
-        isPickerVisible = false
+        // Petit délai : on voit la nouvelle sortie passer en bleu avant que le pop-up se ferme.
+        Task { @MainActor [weak self] in
+            try? await Task.sleep(nanoseconds: 280_000_000)
+            self?.isPickerVisible = false
+        }
     }
 
     // MARK: - CoreAudio

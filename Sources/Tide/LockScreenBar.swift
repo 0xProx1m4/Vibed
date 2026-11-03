@@ -114,14 +114,16 @@ final class LockScreenBar {
         let barTop = card.maxY + frame.height * 0.016 // depuis le haut
 
         let margin: CGFloat = 30 // place pour l'ombre
-        let size = CGSize(width: barWidth + margin * 2, height: barHeight + margin * 2)
+        let popoverSpace = OutputPopover.maxHeight(s: s) + 12 * s // pop-up des sorties audio, au-dessus
+        let size = CGSize(width: barWidth + margin * 2, height: barHeight + margin * 2 + popoverSpace)
         let origin = CGPoint(
             x: frame.midX - size.width / 2,
             y: frame.maxY - barTop - barHeight - margin
         )
 
         let hosting = FirstClickHostingView(
-            rootView: LockBarContent(width: barWidth, height: barHeight, s: s, margin: margin)
+            rootView: LockBarContent(width: barWidth, height: barHeight, s: s, margin: margin,
+                                     popoverSpace: popoverSpace)
                 .environment(\.colorScheme, .dark)
         )
         hosting.frame = CGRect(origin: .zero, size: size)
@@ -138,26 +140,37 @@ private struct LockBarContent: View {
     let height: CGFloat
     let s: CGFloat
     let margin: CGFloat
+    let popoverSpace: CGFloat
 
     var body: some View {
         ZStack(alignment: .top) {
-            Color.clear
+            // Un clic à côté du pop-up le referme, comme sur macOS.
+            if outputs.isPickerVisible {
+                Color.black.opacity(0.001)
+                    .onTapGesture { outputs.isPickerVisible = false }
+            } else {
+                Color.clear
+            }
             if let track = spotify.track {
-                Group {
-                    if outputs.isPickerVisible {
-                        OutputPicker(s: s)
-                    } else {
-                        CompactPlayer(track: track, s: s)
-                    }
-                }
+                CompactPlayer(track: track, s: s)
                     .frame(width: width, height: height)
                     .liquidGlass(cornerRadius: height * 0.13, darkness: 0.28)
-                    .padding(.top, margin)
+                    .overlay(alignment: .bottomTrailing) {
+                        if outputs.isPickerVisible {
+                            OutputPopover(s: s)
+                                .offset(x: -4 * s, y: -(height + 8 * s))
+                                .transition(
+                                    .scale(scale: 0.6, anchor: .bottomTrailing)
+                                        .combined(with: .opacity)
+                                )
+                        }
+                    }
+                    .padding(.top, margin + popoverSpace)
                     .transition(.opacity)
             }
         }
         .animation(.easeInOut(duration: 0.3), value: spotify.track?.id)
-        .animation(.easeInOut(duration: 0.2), value: outputs.isPickerVisible)
+        .animation(.spring(response: 0.32, dampingFraction: 0.82), value: outputs.isPickerVisible)
     }
 }
 
@@ -179,58 +192,79 @@ private struct TimeBubble: View {
     }
 }
 
-/// Choix de la sortie audio, affiché à la place des commandes.
-private struct OutputPicker: View {
+/// Pop-up de choix de la sortie audio, façon Centre de contrôle :
+/// carte Liquid Glass flottante, icônes dans des pastilles, sortie active en bleu.
+private struct OutputPopover: View {
     @ObservedObject private var outputs = AudioOutputs.shared
     let s: CGFloat
 
+    static let maxVisibleRows = 5
+    static func rowHeight(s: CGFloat) -> CGFloat { 30 * s }
+    static func width(s: CGFloat) -> CGFloat { 196 * s }
+    /// Hauteur maximale (en-tête + lignes visibles + marges), pour réserver la place dans le panneau.
+    static func maxHeight(s: CGFloat) -> CGFloat {
+        headerHeight(s: s) + CGFloat(maxVisibleRows) * rowHeight(s: s) + 14 * s
+    }
+    private static func headerHeight(s: CGFloat) -> CGFloat { 24 * s }
+
     var body: some View {
-        VStack(alignment: .leading, spacing: 4 * s) {
-            HStack {
-                Button { outputs.isPickerVisible = false } label: {
-                    Image(systemName: "chevron.left")
-                        .font(.system(size: 10 * s, weight: .bold))
-                        .frame(width: 18 * s, height: 18 * s)
-                        .contentShape(Rectangle())
-                }
-                .buttonStyle(PressableStyle(highlight: .circle))
-                Text("Sortie audio")
-                    .font(.system(size: 11 * s, weight: .semibold))
-                Spacer()
-            }
-            ScrollView(.vertical, showsIndicators: false) {
-                VStack(spacing: 2 * s) {
-                    ForEach(outputs.devices) { device in
-                        Button { outputs.select(device) } label: {
-                            HStack(spacing: 8 * s) {
-                                Image(systemName: device.symbol)
-                                    .font(.system(size: 11 * s))
-                                    .frame(width: 18 * s)
-                                Text(device.name)
-                                    .font(.system(size: 10.5 * s, weight: .medium))
-                                    .lineLimit(1)
-                                Spacer(minLength: 0)
-                                if device.id == outputs.currentID {
-                                    Image(systemName: "checkmark")
-                                        .font(.system(size: 9 * s, weight: .bold))
-                                }
-                            }
-                            .padding(.vertical, 4 * s)
-                            .padding(.horizontal, 6 * s)
-                            .background(
-                                RoundedRectangle(cornerRadius: 6 * s, style: .continuous)
-                                    .fill(.white.opacity(device.id == outputs.currentID ? 0.14 : 0))
-                            )
-                            .contentShape(Rectangle())
+        let rows = max(min(outputs.devices.count, Self.maxVisibleRows), 1)
+
+        VStack(alignment: .leading, spacing: 0) {
+            Text("Sortie audio")
+                .font(.system(size: 11 * s, weight: .bold))
+                .padding(.horizontal, 8 * s)
+                .frame(height: Self.headerHeight(s: s), alignment: .center)
+
+            if outputs.devices.isEmpty {
+                Text("Aucune sortie disponible")
+                    .font(.system(size: 10.5 * s, weight: .medium))
+                    .foregroundStyle(.white.opacity(0.6))
+                    .padding(.horizontal, 8 * s)
+                    .frame(height: Self.rowHeight(s: s))
+            } else {
+                ScrollView(.vertical, showsIndicators: false) {
+                    VStack(spacing: 0) {
+                        ForEach(outputs.devices) { device in
+                            row(device)
                         }
-                        .buttonStyle(PressableStyle(highlight: .rounded(6 * s)))
                     }
                 }
+                .frame(height: CGFloat(rows) * Self.rowHeight(s: s))
             }
         }
         .foregroundStyle(.white)
-        .padding(.horizontal, 10 * s)
-        .padding(.vertical, 8 * s)
+        .padding(.horizontal, 6 * s)
+        .padding(.top, 5 * s)
+        .padding(.bottom, 9 * s)
+        .frame(width: Self.width(s: s), alignment: .leading)
+        .liquidGlass(cornerRadius: 14 * s, darkness: 0.38)
+        .shadow(color: .black.opacity(0.3), radius: 18 * s, y: 8 * s)
+    }
+
+    private func row(_ device: AudioOutput) -> some View {
+        let selected = device.id == outputs.currentID
+        return Button { outputs.select(device) } label: {
+            HStack(spacing: 9 * s) {
+                ZStack {
+                    Circle().fill(selected ? Color.accentColor : .white.opacity(0.14))
+                    Image(systemName: device.symbol)
+                        .font(.system(size: 10.5 * s, weight: .semibold))
+                        .foregroundStyle(.white)
+                }
+                .frame(width: 22 * s, height: 22 * s)
+                Text(device.name)
+                    .font(.system(size: 11 * s, weight: selected ? .semibold : .medium))
+                    .lineLimit(1)
+                Spacer(minLength: 0)
+            }
+            .padding(.horizontal, 5 * s)
+            .frame(height: Self.rowHeight(s: s) - 2 * s)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(PressableStyle(highlight: .rounded(8 * s), dims: false))
+        .frame(height: Self.rowHeight(s: s))
+        .animation(.easeOut(duration: 0.2), value: selected)
     }
 }
 
@@ -281,9 +315,10 @@ private struct CompactPlayer: View {
                     button("forward.fill", size: 14 * s) { spotify.next() }
                 }
                 Spacer(minLength: 0)
-                button(outputs.current?.symbol ?? "laptopcomputer", size: 12 * s) {
-                    outputs.refresh()
-                    outputs.isPickerVisible = true
+                button(outputs.current?.symbol ?? "laptopcomputer", size: 12 * s,
+                       active: outputs.isPickerVisible) {
+                    if !outputs.isPickerVisible { outputs.refresh() }
+                    outputs.isPickerVisible.toggle()
                 }
             }
 
@@ -294,14 +329,17 @@ private struct CompactPlayer: View {
         .padding(.vertical, 8 * s)
     }
 
-    private func button(_ symbol: String, size: CGFloat, action: @escaping () -> Void) -> some View {
+    private func button(_ symbol: String, size: CGFloat, active: Bool = false,
+                        action: @escaping () -> Void) -> some View {
         Button(action: action) {
             Image(systemName: symbol)
                 .font(.system(size: size, weight: .semibold))
                 .frame(width: size * 1.9, height: size * 1.6)
+                .background(Circle().fill(.white.opacity(active ? 0.22 : 0)))
                 .contentShape(Rectangle())
         }
         .buttonStyle(PressableStyle(highlight: .circle))
+        .animation(.easeOut(duration: 0.16), value: active)
     }
 
     private func progress(current: TimeInterval) -> some View {
