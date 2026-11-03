@@ -6,6 +6,7 @@ struct MenuContent: View {
     @AppStorage(Prefs.autoLockMinutes) private var autoLockMinutes = 0
     @AppStorage(Prefs.lockOnScreenSleep) private var lockOnScreenSleep = false
     @AppStorage(Prefs.wallpaperMode) private var wallpaperMode = true
+    @AppStorage(Prefs.lockScreenBar) private var lockScreenBar = true
     @AppStorage(Prefs.coverSize) private var coverSize = 0.34
     @AppStorage(Prefs.coverCenter) private var coverCenter = 0.53
 
@@ -18,6 +19,7 @@ struct MenuContent: View {
             VStack(alignment: .leading, spacing: 10) {
                 sectionTitle("Écran de verrouillage macOS")
                 Toggle("Pochette sur l'écran verrouillé", isOn: $wallpaperMode)
+                Toggle("Barre Liquid Glass sur l'écran verrouillé", isOn: $lockScreenBar)
                 if wallpaperMode {
                     Text("Ton fond d'écran n'est jamais modifié pendant que tu utilises le Mac. Verrouille avec ⌃⌘Q pour voir le résultat.")
                         .font(.system(size: 11))

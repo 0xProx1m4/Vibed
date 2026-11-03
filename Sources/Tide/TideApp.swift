@@ -27,6 +27,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             Prefs.autoLockMinutes: 0,
             Prefs.lockOnScreenSleep: false,
             Prefs.wallpaperMode: true,
+            Prefs.lockScreenBar: true,
             Prefs.coverSize: 0.34,
             Prefs.coverCenter: 0.53,
         ])
@@ -34,6 +35,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
         SpotifyController.shared.start()
         WallpaperManager.shared.start()
+        LockScreenBar.shared.start()
 
         // ⌃⌥⌘L  → verrouiller
         hotKey = HotKey(
@@ -71,6 +73,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
 enum Prefs {
     static let wallpaperMode = "wallpaperMode"
+    static let lockScreenBar = "lockScreenBar"
     static let coverSize = "coverSize"
     static let coverCenter = "coverCenter"
     static let autoLockMinutes = "autoLockMinutes"

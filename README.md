@@ -31,6 +31,14 @@ open build/Tide.app
 Au premier lancement, macOS demande l'autorisation de contrôler **Spotify** : accepte.
 (Si tu as refusé : Réglages Système → Confidentialité et sécurité → Automatisation → Tide → Spotify.)
 
+### Barre Liquid Glass sur l'écran verrouillé
+
+Tide affiche aussi sa propre barre de lecture (titre, barre de durée déplaçable, ⏮ ⏯ ⏭) sous
+la pochette, directement sur le vrai écran verrouillé. macOS ne prévoit aucune API officielle
+pour ça : Tide passe par une fonction privée du serveur de fenêtres (SkyLight), la même
+technique que d'autres apps de la barre des menus. Si une mise à jour de macOS la casse, la
+barre ne s'affiche simplement plus (le reste continue de marcher) : désactive‑la dans le menu.
+
 ## Réglages (icône 🌊 dans la barre des menus)
 
 - **Pochette sur l'écran verrouillé** : active ou désactive le mode écran de verrouillage macOS.
@@ -90,6 +98,8 @@ Sources/Tide/
   TideApp.swift            app barre des menus, raccourci, verrouillage auto
   WallpaperManager.swift   pochette → fond d'écran (vrai écran de verrouillage)
   WallpaperRenderer.swift  génération de l'image de fond
+  LockScreenBar.swift      barre Liquid Glass sur le vrai écran verrouillé
+  SkyLight.swift           accès privé au serveur de fenêtres (au-dessus du verrouillage)
   LockScreenManager.swift  fenêtres plein écran + Touch ID
   LockScreenView.swift     l'écran : fond, horloge, pochette, lecteur
   SpotifyController.swift  lecture/pilotage de Spotify via AppleScript
