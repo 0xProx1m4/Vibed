@@ -117,9 +117,14 @@ final class LockScreenBar {
         let cornerRadius = card.width * 0.04
         let barTop = card.maxY + frame.height * 0.016 // depuis le haut
 
-        let margin: CGFloat = 30 // place pour l'ombre
-        let popoverSpace = OutputPopover.maxHeight(s: s) + 12 * s // pop-up des sorties audio, au-dessus
-        let size = CGSize(width: barWidth + margin * 2, height: barHeight + margin * 2 + popoverSpace)
+        // Le panneau contient aussi la pochette nette (au-dessus de la barre) : elle change
+        // instantanément, sans attendre que macOS applique le nouveau fond d'écran.
+        // Les marges laissent la place à son ombre.
+        let margin = max(30, card.width * 0.14)
+        let gap = barTop - card.maxY
+        let coverSpace = card.height + gap
+        let size = CGSize(width: max(barWidth, card.width) + margin * 2,
+                          height: card.height + gap + barHeight + margin * 2)
         let origin = CGPoint(
             x: frame.midX - size.width / 2,
             y: frame.maxY - barTop - barHeight - margin
@@ -127,7 +132,8 @@ final class LockScreenBar {
 
         let hosting = FirstClickHostingView(
             rootView: LockBarContent(width: barWidth, height: barHeight, s: s, margin: margin,
-                                     popoverSpace: popoverSpace, cornerRadius: cornerRadius)
+                                     coverSide: card.width, coverSpace: coverSpace,
+                                     cornerRadius: cornerRadius)
                 .environment(\.colorScheme, .dark)
         )
         hosting.frame = CGRect(origin: .zero, size: size)
@@ -144,7 +150,9 @@ private struct LockBarContent: View {
     let height: CGFloat
     let s: CGFloat
     let margin: CGFloat
-    let popoverSpace: CGFloat
+    let coverSide: CGFloat
+    /// Hauteur de la pochette + espace jusqu'à la barre.
+    let coverSpace: CGFloat
     let cornerRadius: CGFloat
 
     var body: some View {
@@ -156,6 +164,9 @@ private struct LockBarContent: View {
             } else {
                 Color.clear
             }
+            LockCover(side: coverSide, cornerRadius: cornerRadius)
+                .padding(.top, margin)
+
             if let track = spotify.track {
                 CompactPlayer(track: track, s: s)
                     .frame(width: width, height: height)
@@ -167,7 +178,7 @@ private struct LockBarContent: View {
                             }
                         }
                     }
-                    .padding(.top, margin + popoverSpace)
+                    .padding(.top, margin + coverSpace)
                     .transition(.opacity)
             }
         }
@@ -191,6 +202,36 @@ private struct LockBarContent: View {
                     .combined(with: .opacity)
             )
             .position(x: minX + size.width / 2, y: tipY - size.height / 2)
+    }
+}
+
+/// Pochette nette, dessinée par Tide au-dessus du fond d'écran : elle suit le morceau
+/// immédiatement (fondu enchaîné), alors que le fond d'écran met un moment à être appliqué.
+private struct LockCover: View {
+    @ObservedObject private var spotify = SpotifyController.shared
+    @AppStorage(Prefs.wallpaperMode) private var wallpaperMode = true
+    let side: CGFloat
+    let cornerRadius: CGFloat
+
+    var body: some View {
+        let shape = RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+        ZStack {
+            if wallpaperMode, let art = spotify.artwork {
+                Image(nsImage: art)
+                    .resizable()
+                    .interpolation(.high)
+                    .aspectRatio(contentMode: .fill)
+                    .frame(width: side, height: side)
+                    .clipShape(shape)
+                    .overlay(shape.strokeBorder(.white.opacity(0.22), lineWidth: max(1, side * 0.0025)))
+                    .id(ObjectIdentifier(art))
+                    .transition(.opacity)
+            }
+        }
+        .frame(width: side, height: side)
+        .shadow(color: .black.opacity(0.5), radius: side * 0.07, y: side * 0.045)
+        .animation(.easeInOut(duration: 0.35), value: spotify.artwork.map(ObjectIdentifier.init))
+        .allowsHitTesting(false)
     }
 }
 

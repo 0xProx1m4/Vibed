@@ -32,6 +32,9 @@ final class WallpaperManager {
         var coverSize: Double
         var coverCenter: Double
         var blur: Double
+        /// La pochette nette est affichée par la barre Tide (instantanée) : le fond d'écran
+        /// ne contient alors que l'arrière-plan.
+        var coverInOverlay: Bool
 
         static var current: Settings {
             let d = UserDefaults.standard
@@ -39,7 +42,8 @@ final class WallpaperManager {
                 enabled: d.bool(forKey: Prefs.wallpaperMode),
                 coverSize: d.double(forKey: Prefs.coverSize),
                 coverCenter: d.double(forKey: Prefs.coverCenter),
-                blur: d.double(forKey: Prefs.backgroundBlur)
+                blur: d.double(forKey: Prefs.backgroundBlur),
+                coverInOverlay: d.bool(forKey: Prefs.lockScreenBar) && SkyLight.isAvailable
             )
         }
     }
@@ -190,7 +194,8 @@ final class WallpaperManager {
         let targets: [(id: String, size: CGSize, main: Bool)] = NSScreen.screens.compactMap { screen in
             guard let id = Self.displayID(of: screen) else { return nil }
             let scale = screen.backingScaleFactor
-            return (id, CGSize(width: screen.frame.width * scale, height: screen.frame.height * scale), id == mainID)
+            let drawsCard = id == mainID && !settings.coverInOverlay
+            return (id, CGSize(width: screen.frame.width * scale, height: screen.frame.height * scale), drawsCard)
         }
         let folder = self.folder
 
