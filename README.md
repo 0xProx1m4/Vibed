@@ -51,8 +51,8 @@ barre ne s'affiche simplement plus (le reste continue de marcher).
   ```
 
   Pour le désactiver : `defaults write app.tide.lockscreen instantBackground -bool false`.
-- **Pochettes préchargées** : avec le compte Spotify connecté, Tide télécharge à l'avance les
-  pochettes des prochains morceaux de la file. (Si tu étais connecté avant cette version, le menu
+- **Pochettes préchargées** : avec le compte Spotify connecté, Tide garde en cache les
+  pochettes des 5 prochains morceaux de la file, et complète à chaque changement de morceau. (Si tu étais connecté avant cette version, le menu
   te demande de te reconnecter une fois pour donner ce droit.)
 
 Boutons de la barre : **♥**, **⏮ ⏯ ⏭**, et **💻 sortie audio** (haut‑parleurs du Mac, casque

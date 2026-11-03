@@ -52,7 +52,11 @@ final class SpotifyController: ObservableObject {
     /// Le chargement en cours part de la vraie URL (et non d'une recherche oEmbed).
     private var artworkHasURL = false
     private var artworkCache: [String: NSImage] = [:]
-    private var prefetchTask: Task<Void, Never>?
+    /// Ordre d'arrivée dans le cache, pour oublier les plus anciennes pochettes en premier.
+    private var artworkCacheOrder: [String] = []
+    /// Nombre de morceaux à venir dont la pochette est téléchargée à l'avance.
+    private static let prefetchCount = 5
+    private static let artworkCacheLimit = 30
     /// Morceaux dont la pochette est en cours de préchargement.
     private var prefetching: Set<String> = []
     private var accessCheckInFlight = false
@@ -352,28 +356,47 @@ final class SpotifyController: ObservableObject {
     }
 
     private func cache(_ image: NSImage, for trackID: String) {
-        if artworkCache.count > 40 { artworkCache.removeAll() }
+        artworkCacheOrder.removeAll { $0 == trackID }
+        artworkCacheOrder.append(trackID)
         artworkCache[trackID] = image
+        // On oublie les plus anciennes ; le morceau en cours et ceux à venir sont les plus récents.
+        while artworkCacheOrder.count > Self.artworkCacheLimit {
+            artworkCache[artworkCacheOrder.removeFirst()] = nil
+        }
     }
 
-    /// Télécharge à l'avance les pochettes des prochains morceaux de la file (compte Spotify
-    /// connecté) : au changement de morceau, la pochette est déjà là et s'affiche tout de suite.
+    /// Garde en cache les pochettes des 5 prochains morceaux de la file (compte Spotify
+    /// connecté). Relancé à chaque changement de morceau : la fenêtre avance avec la lecture,
+    /// seules les pochettes manquantes sont téléchargées (en parallèle), et au morceau suivant
+    /// la pochette est déjà là.
     private func prefetchUpcomingArtwork() {
         guard SpotifyWebAPI.shared.isConnected else { return }
-        prefetchTask?.cancel()
-        prefetchTask = Task { [weak self] in
-            // Laisse d'abord passer le chargement de la pochette du morceau en cours.
-            try? await Task.sleep(nanoseconds: 1_500_000_000)
-            guard !Task.isCancelled else { return }
-            let upcoming = await SpotifyWebAPI.shared.upcomingArtwork(limit: 3)
-            for (uri, url) in upcoming {
-                guard !Task.isCancelled, let self,
-                      self.artworkCache[uri] == nil, !self.prefetching.contains(uri) else { continue }
-                self.prefetching.insert(uri)
-                var image = await Self.downloadImage(Self.highResolutionURL(for: url))
-                if image == nil { image = await Self.downloadImage(url) }
-                self.prefetching.remove(uri)
-                if let image, self.artworkCache[uri] == nil { self.cache(image, for: uri) }
+        // Pas d'annulation de la vague précédente : ses téléchargements en cours servent
+        // encore (les doublons sont écartés grâce à `prefetching`).
+        Task { [weak self] in
+            // Un court instant pour laisser partir d'abord la pochette du morceau en cours,
+            // et pour que Spotify ait mis sa file à jour.
+            try? await Task.sleep(nanoseconds: 400_000_000)
+            let upcoming = await SpotifyWebAPI.shared.upcomingArtwork(limit: Self.prefetchCount)
+            guard let self else { return }
+
+            let missing = upcoming.filter { self.artworkCache[$0.uri] == nil && !self.prefetching.contains($0.uri) }
+            guard !missing.isEmpty else { return }
+            missing.forEach { self.prefetching.insert($0.uri) }
+            defer { missing.forEach { self.prefetching.remove($0.uri) } }
+
+            await withTaskGroup(of: (String, NSImage?).self) { group in
+                for (uri, url) in missing {
+                    group.addTask {
+                        if let hiRes = await Self.downloadImage(Self.highResolutionURL(for: url)) {
+                            return (uri, hiRes)
+                        }
+                        return (uri, await Self.downloadImage(url))
+                    }
+                }
+                for await (uri, image) in group {
+                    if let image, self.artworkCache[uri] == nil { self.cache(image, for: uri) }
+                }
             }
         }
     }
