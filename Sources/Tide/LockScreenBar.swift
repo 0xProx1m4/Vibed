@@ -107,13 +107,12 @@ final class LockScreenBar {
         ).cardRect(screenWidth: frame.width, screenHeight: frame.height)
 
         // Même largeur que la pochette (les deux bords sont alignés), juste en dessous
-        // avec un petit espace : elle ne la recouvre jamais. La taille des commandes
-        // et la hauteur restent celles d'une barre à ~74 % de la pochette, pour ne pas
-        // tout grossir : seules les marges latérales s'élargissent.
-        let barWidth = max(card.width, 220)
-        let contentWidth = max(card.width * 0.74, 220)
-        let s = contentWidth / 250
-        let barHeight = contentWidth * 0.55
+        // avec un petit espace : elle ne la recouvre jamais. Tout le contenu est dessiné
+        // sur une grille de 300 × 124 unités `s`, pour garder les mêmes proportions
+        // quelle que soit la taille de la pochette.
+        let barWidth = max(card.width, 240)
+        let s = barWidth / 300
+        let barHeight = 124 * s
         // Mêmes coins arrondis que la pochette (rayon = 4 % de sa largeur).
         let cornerRadius = card.width * 0.04
         let barTop = card.maxY + frame.height * 0.016 // depuis le haut
@@ -288,28 +287,30 @@ private struct CompactPlayer: View {
     let s: CGFloat
 
     var body: some View {
+        // Grille 300 × 124 : marges 18 / 13, titre (≈ 31), 9, progression (14),
+        // espace souple, commandes (≈ 36). Les bords du ♥ et du 💻 tombent sur ceux
+        // de la barre de progression.
         VStack(spacing: 0) {
-            Spacer(minLength: 0)
-
             // Titre + artiste, centrés ; petite onde à droite
             ZStack {
-                VStack(spacing: 1 * s) {
+                VStack(spacing: 2 * s) {
                     Text(track.title)
-                        .font(.system(size: 11 * s, weight: .semibold))
+                        .font(.system(size: 12.5 * s, weight: .semibold))
                     Text(track.artist)
-                        .font(.system(size: 10 * s, weight: .medium))
-                        .foregroundStyle(.white.opacity(0.7))
+                        .font(.system(size: 11 * s, weight: .medium))
+                        .foregroundStyle(.white.opacity(0.65))
                 }
                 .lineLimit(1)
-                .padding(.horizontal, 16 * s)
+                .padding(.horizontal, 24 * s)
 
                 HStack {
                     Spacer()
-                    EqualizerIcon(isPlaying: spotify.isPlaying, height: 9 * s)
+                    EqualizerIcon(isPlaying: spotify.isPlaying, height: 10 * s)
+                        .opacity(0.8)
                 }
             }
 
-            Spacer(minLength: 0).frame(maxHeight: 8 * s)
+            Spacer(minLength: 0).frame(height: 9 * s)
 
             TimelineView(.periodic(from: .now, by: 0.5)) { ctx in
                 progress(current: spotify.scrubPosition ?? spotify.position(at: ctx.date))
@@ -317,40 +318,45 @@ private struct CompactPlayer: View {
 
             Spacer(minLength: 0)
 
-            // ♥   ⏮ ⏯ ⏭   💻  — comme le lecteur de référence
+            // ♥   ⏮ ⏯ ⏭   💻
             HStack(spacing: 0) {
-                button(spotify.isCurrentTrackLiked ? "heart.fill" : "heart", size: 12 * s) { spotify.toggleLike() }
-                Spacer(minLength: 0)
-                HStack(spacing: 22 * s) {
-                    button("backward.fill", size: 14 * s) { spotify.previous() }
-                    button(spotify.isPlaying ? "pause.fill" : "play.fill", size: 19 * s) { spotify.playPause() }
-                    button("forward.fill", size: 14 * s) { spotify.next() }
+                button(spotify.isCurrentTrackLiked ? "heart.fill" : "heart", size: 13 * s, edge: .leading) {
+                    spotify.toggleLike()
                 }
                 Spacer(minLength: 0)
-                button(outputs.current?.symbol ?? "laptopcomputer", size: 12 * s,
+                HStack(spacing: 24 * s) {
+                    button("backward.fill", size: 16 * s) { spotify.previous() }
+                    button(spotify.isPlaying ? "pause.fill" : "play.fill", size: 23 * s) { spotify.playPause() }
+                    button("forward.fill", size: 16 * s) { spotify.next() }
+                }
+                Spacer(minLength: 0)
+                button(outputs.current?.symbol ?? "laptopcomputer", size: 13 * s, edge: .trailing,
                        active: outputs.isPickerVisible) {
                     if !outputs.isPickerVisible { outputs.refresh() }
                     outputs.isPickerVisible.toggle()
                 }
             }
-
-            Spacer(minLength: 0)
         }
         .foregroundStyle(.white)
-        .padding(.horizontal, 14 * s)
-        .padding(.vertical, 8 * s)
+        .padding(.horizontal, 18 * s)
+        .padding(.vertical, 13 * s)
     }
 
-    private func button(_ symbol: String, size: CGFloat, active: Bool = false,
-                        action: @escaping () -> Void) -> some View {
-        Button(action: action) {
+    /// `edge` : les boutons des côtés débordent un peu dans la marge, pour que l'icône
+    /// (et non sa zone cliquable) s'aligne sur le bord de la barre de progression.
+    private func button(_ symbol: String, size: CGFloat, edge: HorizontalEdge? = nil,
+                        active: Bool = false, action: @escaping () -> Void) -> some View {
+        let side = size * 1.65
+        let inset = (side - size) / 2
+        return Button(action: action) {
             Image(systemName: symbol)
                 .font(.system(size: size, weight: .semibold))
-                .frame(width: size * 1.9, height: size * 1.6)
+                .frame(width: side, height: side)
                 .background(Circle().fill(.white.opacity(active ? 0.22 : 0)))
-                .contentShape(Rectangle())
+                .contentShape(Circle())
         }
         .buttonStyle(PressableStyle(highlight: .circle))
+        .padding(edge == .leading ? .leading : .trailing, edge == nil ? 0 : -inset)
         .animation(.easeOut(duration: 0.16), value: active)
     }
 
@@ -363,7 +369,7 @@ private struct CompactPlayer: View {
         // Bulle : position survolée, ou position en cours pendant le glisser.
         let bubble: Double? = scrubbing ? fraction : hover
 
-        return HStack(spacing: 7 * s) {
+        return HStack(spacing: 8 * s) {
             Text(formatTime(current))
             GeometryReader { g in
                 let width = g.size.width
@@ -377,7 +383,7 @@ private struct CompactPlayer: View {
                     Capsule().fill(.white.opacity(active ? 1 : 0.88))
                         .frame(width: width * fraction)
                 }
-                .frame(height: (active ? 6 : 3.5) * s)
+                .frame(height: (active ? 7 : 4) * s)
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .overlay {
                     if let bubble {
@@ -408,11 +414,11 @@ private struct CompactPlayer: View {
                 .animation(.spring(response: 0.3, dampingFraction: 0.8), value: active)
                 .animation(.easeOut(duration: 0.15), value: bubble == nil)
             }
-            .frame(height: 12 * s)
+            .frame(height: 14 * s)
             Text("-" + formatTime(track.duration - current))
         }
-        .font(.system(size: 8.5 * s, weight: .medium).monospacedDigit())
-        .foregroundStyle(.white.opacity(0.7))
+        .font(.system(size: 9.5 * s, weight: .medium).monospacedDigit())
+        .foregroundStyle(.white.opacity(0.65))
     }
 
     /// Garde la bulle entièrement au-dessus de la barre (pas de débordement aux extrémités).
