@@ -35,7 +35,7 @@ Tide affiche aussi sa propre barre de lecture (titre, barre de durée déplaçab
 la pochette, directement sur le vrai écran verrouillé. macOS ne prévoit aucune API officielle
 pour ça : Tide passe par une fonction privée du serveur de fenêtres (SkyLight), la même
 technique que d'autres apps de la barre des menus. Si une mise à jour de macOS la casse, la
-barre ne s'affiche simplement plus (le reste continue de marcher) : désactive‑la dans le menu.
+barre ne s'affiche simplement plus (le reste continue de marcher).
 
 Boutons de la barre : **♥**, **⏮ ⏯ ⏭**, et **💻 sortie audio** (haut‑parleurs du Mac, casque
 Bluetooth, AirPlay…).
@@ -54,7 +54,10 @@ renouvellement est gardé dans `~/Library/Application Support/Tide/spotify-token
 toi seul). Sans compte connecté, le ♥ envoie le raccourci Spotify ⌥⇧B (autorisation
 Accessibilité), mais Tide ne peut alors pas savoir si un morceau est déjà liké.
 
-## Réglages (icône 🌊 dans la barre des menus)
+## Réglages (masqués pour l'instant)
+
+Ces réglages sont cachés du menu 🌊 : passe `showsCustomization` à `true` dans
+`Sources/Tide/MenuContent.swift` et recompile pour les retrouver.
 
 - **Pochette sur l'écran verrouillé** : active ou désactive le mode écran de verrouillage macOS.
 - **Taille / Position** : ajuste la pochette pour qu'elle tombe bien entre l'horloge et le lecteur de macOS.

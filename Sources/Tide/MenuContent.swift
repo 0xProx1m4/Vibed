@@ -2,6 +2,10 @@ import SwiftUI
 
 /// Petit panneau de la barre des menus.
 struct MenuContent: View {
+    /// Réglages de l'écran verrouillé (pochette, barre, taille, position, flou).
+    /// Masqués pour l'instant : passe à `true` pour les réafficher dans le menu.
+    private static let showsCustomization = false
+
     @ObservedObject private var spotify = SpotifyController.shared
     @ObservedObject private var webAPI = SpotifyWebAPI.shared
     @AppStorage(Prefs.spotifyClientID) private var clientID = ""
@@ -17,23 +21,11 @@ struct MenuContent: View {
 
             accessBanner
 
-            VStack(alignment: .leading, spacing: 10) {
-                sectionTitle("Écran de verrouillage macOS")
-                Toggle("Pochette sur l'écran verrouillé", isOn: $wallpaperMode)
-                Toggle("Barre Liquid Glass sur l'écran verrouillé", isOn: $lockScreenBar)
-                if wallpaperMode {
-                    Text("Ton fond d'écran n'est jamais modifié pendant que tu utilises le Mac. Verrouille avec ⌃⌘Q pour voir le résultat.")
-                        .font(.system(size: 11))
-                        .foregroundStyle(.secondary)
-                        .fixedSize(horizontal: false, vertical: true)
-                    labeledSlider("Taille", value: $coverSize, range: 0.25...0.45)
-                    labeledSlider("Position", value: $coverCenter, range: 0.36...0.52)
-                    labeledSlider("Flou", value: $backgroundBlur, range: 0...1)
-                }
-            }
-            .font(.system(size: 12))
+            if Self.showsCustomization {
+                customization
 
-            Divider()
+                Divider()
+            }
 
             spotifyAccount
 
@@ -46,6 +38,24 @@ struct MenuContent: View {
         }
         .padding(16)
         .frame(width: 300)
+    }
+
+    private var customization: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            sectionTitle("Écran de verrouillage macOS")
+            Toggle("Pochette sur l'écran verrouillé", isOn: $wallpaperMode)
+            Toggle("Barre Liquid Glass sur l'écran verrouillé", isOn: $lockScreenBar)
+            if wallpaperMode {
+                Text("Ton fond d'écran n'est jamais modifié pendant que tu utilises le Mac. Verrouille avec ⌃⌘Q pour voir le résultat.")
+                    .font(.system(size: 11))
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+                labeledSlider("Taille", value: $coverSize, range: 0.25...0.45)
+                labeledSlider("Position", value: $coverCenter, range: 0.36...0.52)
+                labeledSlider("Flou", value: $backgroundBlur, range: 0...1)
+            }
+        }
+        .font(.system(size: 12))
     }
 
     @ViewBuilder
