@@ -72,7 +72,7 @@ final class WallpaperManager {
 
         SpotifyController.shared.$artwork
             .removeDuplicates { $0 === $1 }
-            .debounce(for: .milliseconds(300), scheduler: RunLoop.main)
+            .debounce(for: .milliseconds(80), scheduler: RunLoop.main)
             .sink { [weak self] image in self?.artworkChanged(image) }
             .store(in: &cancellables)
 

@@ -48,6 +48,8 @@ final class SpotifyController: ObservableObject {
     private var timer: Timer?
     private var artworkTask: Task<Void, Never>?
     private var artworkTrackID: String?
+    /// Le chargement en cours part de la vraie URL (et non d'une recherche oEmbed).
+    private var artworkHasURL = false
     private var artworkCache: [String: NSImage] = [:]
     private var accessCheckInFlight = false
 
@@ -305,8 +307,18 @@ final class SpotifyController: ObservableObject {
     // MARK: - Pochette
 
     private func loadArtworkIfNeeded(trackID: String, url: URL?) {
-        guard trackID != artworkTrackID else { return }
+        // Déjà en cours pour ce morceau : on ne relance que si on reçoit enfin la vraie URL
+        // alors qu'on était parti sur la recherche oEmbed (plus lente).
+        if trackID == artworkTrackID, url == nil || artworkHasURL { return }
+
+        // La notification de Spotify n'a pas l'URL de la pochette, mais le script lancé
+        // juste après l'a : on l'attend plutôt que de faire une recherche réseau en plus.
+        if url == nil, access == .granted, artworkCache[trackID] == nil {
+            return
+        }
+
         artworkTrackID = trackID
+        artworkHasURL = url != nil
         artworkTask?.cancel()
 
         if let cached = artworkCache[trackID] { artwork = cached; return }
@@ -314,18 +326,24 @@ final class SpotifyController: ObservableObject {
         artworkTask = Task { [weak self] in
             var imageURL = url
             if imageURL == nil { imageURL = await Self.oEmbedThumbnail(for: trackID) }
-            guard let imageURL else { return }
+            guard let imageURL, !Task.isCancelled else { return }
 
-            // Version haute définition (2000 px) si Spotify l'a, sinon l'image normale (640 px).
-            var image: NSImage?
-            if let hiRes = Self.highResolutionURL(for: imageURL) {
-                image = await Self.downloadImage(hiRes)
+            // 1. Pochette normale (640 px, légère) affichée tout de suite…
+            let hiResURL = Self.highResolutionURL(for: imageURL)
+            async let hiResDownload = Self.downloadImage(hiResURL)
+            if let quick = await Self.downloadImage(imageURL), !Task.isCancelled, let self,
+               self.artworkTrackID == trackID {
+                self.artwork = quick
             }
-            if image == nil { image = await Self.downloadImage(imageURL) }
-            guard let image, !Task.isCancelled, let self else { return }
-            if self.artworkCache.count > 40 { self.artworkCache.removeAll() }
-            self.artworkCache[trackID] = image
-            if self.artworkTrackID == trackID { self.artwork = image }
+
+            // 2. …puis remplacée par la version haute définition (2000 px) si Spotify l'a.
+            let best = await hiResDownload
+            guard !Task.isCancelled, let self, self.artworkTrackID == trackID else { return }
+            if let best { self.artwork = best }
+            if let image = best ?? self.artwork {
+                if self.artworkCache.count > 40 { self.artworkCache.removeAll() }
+                self.artworkCache[trackID] = image
+            }
         }
     }
 
@@ -338,7 +356,8 @@ final class SpotifyController: ObservableObject {
         return hiRes == string ? nil : URL(string: hiRes)
     }
 
-    nonisolated private static func downloadImage(_ url: URL) async -> NSImage? {
+    nonisolated private static func downloadImage(_ url: URL?) async -> NSImage? {
+        guard let url else { return nil }
         guard let (data, response) = try? await URLSession.shared.data(from: url),
               (response as? HTTPURLResponse)?.statusCode ?? 200 == 200 else { return nil }
         return NSImage(data: data)
