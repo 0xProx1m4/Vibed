@@ -106,11 +106,16 @@ final class LockScreenBar {
             coverCenter: defaults.double(forKey: Prefs.coverCenter)
         ).cardRect(screenWidth: frame.width, screenHeight: frame.height)
 
-        // ~74 % de la largeur de la pochette, ratio ~0,55, sous la pochette
-        // avec un petit espace : elle ne la recouvre jamais.
-        let barWidth = max(card.width * 0.74, 220)
-        let s = barWidth / 250
-        let barHeight = barWidth * 0.55
+        // Même largeur que la pochette (les deux bords sont alignés), juste en dessous
+        // avec un petit espace : elle ne la recouvre jamais. La taille des commandes
+        // et la hauteur restent celles d'une barre à ~74 % de la pochette, pour ne pas
+        // tout grossir : seules les marges latérales s'élargissent.
+        let barWidth = max(card.width, 220)
+        let contentWidth = max(card.width * 0.74, 220)
+        let s = contentWidth / 250
+        let barHeight = contentWidth * 0.55
+        // Mêmes coins arrondis que la pochette (rayon = 4 % de sa largeur).
+        let cornerRadius = card.width * 0.04
         let barTop = card.maxY + frame.height * 0.016 // depuis le haut
 
         let margin: CGFloat = 30 // place pour l'ombre
@@ -123,7 +128,7 @@ final class LockScreenBar {
 
         let hosting = FirstClickHostingView(
             rootView: LockBarContent(width: barWidth, height: barHeight, s: s, margin: margin,
-                                     popoverSpace: popoverSpace)
+                                     popoverSpace: popoverSpace, cornerRadius: cornerRadius)
                 .environment(\.colorScheme, .dark)
         )
         hosting.frame = CGRect(origin: .zero, size: size)
@@ -141,6 +146,7 @@ private struct LockBarContent: View {
     let s: CGFloat
     let margin: CGFloat
     let popoverSpace: CGFloat
+    let cornerRadius: CGFloat
 
     var body: some View {
         ZStack(alignment: .top) {
@@ -154,7 +160,7 @@ private struct LockBarContent: View {
             if let track = spotify.track {
                 CompactPlayer(track: track, s: s)
                     .frame(width: width, height: height)
-                    .liquidGlass(cornerRadius: height * 0.13, darkness: 0.28)
+                    .liquidGlass(cornerRadius: cornerRadius, darkness: 0.28)
                     .overlay(alignment: .bottomTrailing) {
                         if outputs.isPickerVisible {
                             OutputPopover(s: s)
