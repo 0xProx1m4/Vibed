@@ -29,6 +29,9 @@ final class SpotifyController: ObservableObject {
     @Published private(set) var track: Track?
     @Published private(set) var isPlaying = false
     @Published private(set) var artwork: NSImage?
+    /// Chaque pochette qui arrive dans le cache (morceau en cours ou préchargé), pour que le
+    /// fond d'écran puisse être préparé à l'avance.
+    let artworkCached = PassthroughSubject<(trackID: String, image: NSImage, hiRes: Bool), Never>()
     @Published private(set) var access: Access = .unknown
     @Published private(set) var lastError: String?
     /// Position pendant que l'utilisateur fait glisser la barre de progression.
@@ -373,7 +376,11 @@ final class SpotifyController: ObservableObject {
             hiResCached.remove(old)
         }
         if track?.id == trackID, artwork !== image { artwork = image }
+        artworkCached.send((trackID, image, hiRes))
     }
+
+    /// La pochette en cache est la version définitive (HD, ou il n'y en a pas d'autre).
+    func hasFinalArtwork(_ trackID: String) -> Bool { hiResCached.contains(trackID) }
 
     /// Garde prêtes les pochettes des 5 prochains morceaux de la file (compte Spotify
     /// connecté). Au premier lancement, les 5 sont téléchargées en parallèle ; ensuite, à

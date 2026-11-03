@@ -19,7 +19,20 @@ final class WallpaperManager {
     private var isApplied = false
     /// Images déjà générées pour le morceau en cours, par écran.
     private var prepared: [String: URL] = [:]
+    /// Fonds déjà générés par morceau (en cours, précédents et 5 prochains), pour les appliquer
+    /// sans attendre le rendu au changement de morceau.
+    private struct Rendered {
+        var files: [String: URL]
+        var final: Bool
+    }
+    private var rendered: [String: Rendered] = [:]
+    private var renderedOrder: [String] = []
+    private var prerendering: Set<String> = []
+    private static let renderedLimit = 10
     private let renderQueue = DispatchQueue(label: "app.tide.wallpaper", qos: .userInitiated)
+    /// File séparée et moins prioritaire : les rendus à l'avance ne retardent jamais
+    /// celui du morceau en cours.
+    private let prerenderQueue = DispatchQueue(label: "app.tide.wallpaper.prerender", qos: .utility)
     private let folder: URL
 
     private static let originalsKey = "originalWallpapers"
@@ -76,8 +89,13 @@ final class WallpaperManager {
 
         SpotifyController.shared.$artwork
             .removeDuplicates { $0 === $1 }
-            .debounce(for: .milliseconds(80), scheduler: RunLoop.main)
+            .receive(on: RunLoop.main)
             .sink { [weak self] image in self?.artworkChanged(image) }
+            .store(in: &cancellables)
+
+        SpotifyController.shared.artworkCached
+            .receive(on: RunLoop.main)
+            .sink { [weak self] item in self?.prerender(trackID: item.trackID, image: item.image, final: item.hiRes) }
             .store(in: &cancellables)
 
         NotificationCenter.default.publisher(for: UserDefaults.didChangeNotification)
@@ -87,7 +105,7 @@ final class WallpaperManager {
 
         NotificationCenter.default.publisher(for: NSApplication.didChangeScreenParametersNotification)
             .debounce(for: .seconds(1), scheduler: RunLoop.main)
-            .sink { [weak self] _ in self?.prepare() }
+            .sink { [weak self] _ in self?.invalidateRendered(); self?.prepare() }
             .store(in: &cancellables)
     }
 
@@ -164,6 +182,13 @@ final class WallpaperManager {
             if isLocked { restoreOriginal() }
             return
         }
+        // Fond déjà prêt (préparé à l'avance) : appliqué tout de suite, sans rendu.
+        if let id = SpotifyController.shared.track?.id, let ready = rendered[id] {
+            generation += 1 // un rendu en cours pour un autre morceau ne doit plus s'appliquer
+            prepared = ready.files
+            if isLocked { setPrepared() }
+            if ready.final || !SpotifyController.shared.hasFinalArtwork(id) { return }
+        }
         prepare()
     }
 
@@ -171,6 +196,7 @@ final class WallpaperManager {
         let settings = Settings.current
         guard settings != lastSettings else { return }
         lastSettings = settings
+        invalidateRendered()
         if settings.enabled {
             prepare()
         } else {
@@ -180,45 +206,112 @@ final class WallpaperManager {
 
     // MARK: - Rendu (à l'avance, pour que le changement au verrouillage soit instantané)
 
-    private func prepare() {
+    private struct Target {
+        let id: String
+        let size: CGSize
+        let drawsCard: Bool
+    }
+
+    private func renderSetup() -> (layout: WallpaperRenderer.Layout, targets: [Target])? {
         let settings = Settings.current
-        guard settings.enabled,
+        guard settings.enabled else { return nil }
+        let layout = WallpaperRenderer.Layout(coverSize: settings.coverSize, coverCenter: settings.coverCenter, blur: settings.blur)
+        // L'écran principal est celui où macOS affiche l'horloge : c'est le seul qui reçoit la carte.
+        let mainID = NSScreen.screens.first.flatMap(Self.displayID(of:))
+        let targets: [Target] = NSScreen.screens.compactMap { screen in
+            guard let id = Self.displayID(of: screen) else { return nil }
+            let scale = screen.backingScaleFactor
+            return Target(id: id, size: CGSize(width: screen.frame.width * scale, height: screen.frame.height * scale),
+                          drawsCard: id == mainID && !settings.coverInOverlay)
+        }
+        return (layout, targets)
+    }
+
+    nonisolated private static func renderFiles(cover: CGImage, layout: WallpaperRenderer.Layout,
+                                                targets: [Target], folder: URL) -> [String: URL] {
+        var files: [String: URL] = [:]
+        for target in targets {
+            guard let data = WallpaperRenderer.render(cover: cover, pixelSize: target.size, layout: layout, drawsCard: target.drawsCard) else { continue }
+            // Nom unique : macOS ne recharge pas une image dont le chemin n'a pas changé.
+            let url = folder.appendingPathComponent("tide-\(target.id)-\(UUID().uuidString.prefix(8)).jpg")
+            if (try? data.write(to: url, options: .atomic)) != nil { files[target.id] = url }
+        }
+        return files
+    }
+
+    /// Rendu du fond pour le morceau en cours.
+    private func prepare() {
+        guard let setup = renderSetup(),
               let image = SpotifyController.shared.artwork,
               let cover = image.cgImage(forProposedRect: nil, context: nil, hints: nil) else { return }
 
         generation += 1
         let gen = generation
-        let layout = WallpaperRenderer.Layout(coverSize: settings.coverSize, coverCenter: settings.coverCenter, blur: settings.blur)
-        // L'écran principal est celui où macOS affiche l'horloge : c'est le seul qui reçoit la carte.
-        let mainID = NSScreen.screens.first.flatMap(Self.displayID(of:))
-        let targets: [(id: String, size: CGSize, main: Bool)] = NSScreen.screens.compactMap { screen in
-            guard let id = Self.displayID(of: screen) else { return nil }
-            let scale = screen.backingScaleFactor
-            let drawsCard = id == mainID && !settings.coverInOverlay
-            return (id, CGSize(width: screen.frame.width * scale, height: screen.frame.height * scale), drawsCard)
-        }
+        let trackID = SpotifyController.shared.track?.id
+        let final = trackID.map(SpotifyController.shared.hasFinalArtwork) ?? false
         let folder = self.folder
 
         renderQueue.async { [weak self] in
-            var files: [String: URL] = [:]
-            for target in targets {
-                guard let data = WallpaperRenderer.render(cover: cover, pixelSize: target.size, layout: layout, drawsCard: target.main) else { continue }
-                // Nom unique : macOS ne recharge pas une image dont le chemin n'a pas changé.
-                let url = folder.appendingPathComponent("tide-\(target.id)-\(UUID().uuidString.prefix(8)).jpg")
-                if (try? data.write(to: url, options: .atomic)) != nil { files[target.id] = url }
-            }
-
+            let files = Self.renderFiles(cover: cover, layout: setup.layout, targets: setup.targets, folder: folder)
             Task { @MainActor in
-                guard let self, gen == self.generation else {
-                    files.values.forEach { try? FileManager.default.removeItem(at: $0) }
-                    return
-                }
+                guard let self else { return }
+                if let trackID { self.remember(files, for: trackID, final: final) }
+                guard gen == self.generation else { self.cleanUp(); return }
                 self.prepared = files
                 self.cleanUp()
                 // Verrouillé (morceau suivant pendant le verrouillage, ou premier rendu) → on applique.
                 if self.isLocked { self.setPrepared() }
             }
         }
+    }
+
+    /// Rendu à l'avance du fond d'un morceau à venir, dès que sa pochette est en cache.
+    private func prerender(trackID: String, image: NSImage, final: Bool) {
+        // Le morceau en cours passe par `prepare()` ; une 640 px provisoire ne vaut pas un rendu.
+        guard final, trackID != SpotifyController.shared.track?.id,
+              rendered[trackID]?.final != true, !prerendering.contains(trackID),
+              let setup = renderSetup(),
+              let cover = image.cgImage(forProposedRect: nil, context: nil, hints: nil) else { return }
+        prerendering.insert(trackID)
+        let folder = self.folder
+
+        prerenderQueue.async { [weak self] in
+            let files = Self.renderFiles(cover: cover, layout: setup.layout, targets: setup.targets, folder: folder)
+            Task { @MainActor in
+                guard let self else { return }
+                self.prerendering.remove(trackID)
+                self.remember(files, for: trackID, final: true)
+                self.cleanUp()
+                // Devenu le morceau en cours pendant le rendu, sans fond définitif : on l'utilise.
+                if SpotifyController.shared.track?.id == trackID, self.prepared != files {
+                    self.generation += 1
+                    self.prepared = files
+                    if self.isLocked { self.setPrepared() }
+                }
+            }
+        }
+    }
+
+    private func remember(_ files: [String: URL], for trackID: String, final: Bool) {
+        guard !files.isEmpty else { return }
+        if rendered[trackID]?.final == true, !final { return }
+        rendered[trackID] = Rendered(files: files, final: final)
+        renderedOrder.removeAll { $0 == trackID }
+        renderedOrder.append(trackID)
+        let current = SpotifyController.shared.track?.id
+        while renderedOrder.count > Self.renderedLimit,
+              let old = renderedOrder.first(where: { $0 != current }) {
+            renderedOrder.removeAll { $0 == old }
+            rendered[old] = nil
+        }
+    }
+
+    /// Réglages ou écrans changés : les fonds préparés ne sont plus bons.
+    private func invalidateRendered() {
+        rendered = [:]
+        renderedOrder = []
+        prerendering = []
+        cleanUp()
     }
 
     // MARK: - Sauvegarde du fond d'origine
@@ -242,10 +335,16 @@ final class WallpaperManager {
     }
 
     private func cleanUp() {
-        let keep = Set(prepared.values.map(\.standardizedFileURL.path))
-        let files = (try? FileManager.default.contentsOfDirectory(at: folder, includingPropertiesForKeys: nil)) ?? []
+        let inUse = prepared.values.map(\.standardizedFileURL.path)
+            + rendered.values.flatMap { $0.files.values.map(\.standardizedFileURL.path) }
+        let keep = Set(inUse)
+        let fm = FileManager.default
+        let files = (try? fm.contentsOfDirectory(at: folder, includingPropertiesForKeys: [.contentModificationDateKey])) ?? []
         for file in files where file.pathExtension == "jpg" && !keep.contains(file.standardizedFileURL.path) {
-            try? FileManager.default.removeItem(at: file)
+            // Un rendu qui vient de finir n'est peut-être pas encore enregistré : on le laisse.
+            let modified = (try? file.resourceValues(forKeys: [.contentModificationDateKey]))?.contentModificationDate
+            if let modified, Date().timeIntervalSince(modified) < 30 { continue }
+            try? fm.removeItem(at: file)
         }
     }
 
