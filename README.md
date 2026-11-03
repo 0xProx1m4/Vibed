@@ -39,10 +39,22 @@ pour ça : Tide passe par une fonction privée du serveur de fenêtres (SkyLight
 technique que d'autres apps de la barre des menus. Si une mise à jour de macOS la casse, la
 barre ne s'affiche simplement plus (le reste continue de marcher) : désactive‑la dans le menu.
 
-Boutons de la barre : **♥** (ajoute le morceau à tes Titres likés via le raccourci Spotify ⌥⇧B —
-nécessite l'autorisation Accessibilité, bouton dans le menu 🌊), **⏮ ⏯ ⏭**, et **💻 sortie audio**
-(haut‑parleurs du Mac, casque Bluetooth, AirPlay…). Spotify ne permettant pas de savoir de
-l'extérieur si un morceau est déjà liké, le cœur ne reflète que ce que tu as fait depuis Tide.
+Boutons de la barre : **♥**, **⏮ ⏯ ⏭**, et **💻 sortie audio** (haut‑parleurs du Mac, casque
+Bluetooth, AirPlay…).
+
+#### Le ♥ (Titres likés)
+
+Pour que le cœur soit **rempli quand le morceau est déjà liké**, Tide doit lire ta bibliothèque
+via l'API web de Spotify (c'est la seule source de cette info). Une seule fois :
+
+1. Va sur [developer.spotify.com/dashboard](https://developer.spotify.com/dashboard) → **Create app**.
+2. Redirect URI : `http://127.0.0.1:43821/callback` — coche **Web API** — enregistre.
+3. Copie le **Client ID** dans le menu 🌊 › Compte Spotify, puis **Se connecter à Spotify**.
+
+Connexion OAuth « PKCE » : aucun mot de passe ni secret n'est stocké ; seul un jeton de
+renouvellement est gardé dans `~/Library/Application Support/Tide/spotify-token` (lisible par
+toi seul). Sans compte connecté, le ♥ envoie le raccourci Spotify ⌥⇧B (autorisation
+Accessibilité), mais Tide ne peut alors pas savoir si un morceau est déjà liké.
 
 ## Réglages (icône 🌊 dans la barre des menus)
 
@@ -104,6 +116,7 @@ Sources/Tide/
   WallpaperManager.swift   pochette → fond d'écran (vrai écran de verrouillage)
   WallpaperRenderer.swift  génération de l'image de fond
   LockScreenBar.swift      barre Liquid Glass sur le vrai écran verrouillé
+  SpotifyWebAPI.swift      connexion au compte Spotify (♥ et état liké)
   AudioOutputs.swift       liste et choix de la sortie audio (CoreAudio)
   SkyLight.swift           accès privé au serveur de fenêtres (au-dessus du verrouillage)
   LockScreenManager.swift  fenêtres plein écran + Touch ID

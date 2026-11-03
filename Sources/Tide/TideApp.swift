@@ -76,6 +76,7 @@ enum Prefs {
     static let wallpaperMode = "wallpaperMode"
     static let lockScreenBar = "lockScreenBar"
     static let backgroundBlur = "backgroundBlur"
+    static let spotifyClientID = "spotifyClientID"
     static let coverSize = "squareCoverSize"
     static let coverCenter = "squareCoverCenter"
     static let autoLockMinutes = "autoLockMinutes"

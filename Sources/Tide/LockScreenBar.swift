@@ -54,6 +54,7 @@ final class LockScreenBar {
 
     private func screenLocked() {
         isLocked = true
+        SpotifyController.shared.refreshLikedState()
         unlockTask?.cancel()
         guard UserDefaults.standard.bool(forKey: Prefs.lockScreenBar),
               SkyLight.isAvailable,

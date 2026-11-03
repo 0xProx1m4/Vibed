@@ -3,6 +3,8 @@ import SwiftUI
 /// Petit panneau de la barre des menus.
 struct MenuContent: View {
     @ObservedObject private var spotify = SpotifyController.shared
+    @ObservedObject private var webAPI = SpotifyWebAPI.shared
+    @AppStorage(Prefs.spotifyClientID) private var clientID = ""
     @AppStorage(Prefs.autoLockMinutes) private var autoLockMinutes = 0
     @AppStorage(Prefs.lockOnScreenSleep) private var lockOnScreenSleep = false
     @AppStorage(Prefs.wallpaperMode) private var wallpaperMode = true
@@ -21,12 +23,6 @@ struct MenuContent: View {
                 sectionTitle("Écran de verrouillage macOS")
                 Toggle("Pochette sur l'écran verrouillé", isOn: $wallpaperMode)
                 Toggle("Barre Liquid Glass sur l'écran verrouillé", isOn: $lockScreenBar)
-                if lockScreenBar && !spotify.canLike {
-                    Button("Activer le bouton ♥ (autorisation Accessibilité)") {
-                        spotify.requestLikePermission()
-                    }
-                    .font(.system(size: 11))
-                }
                 if wallpaperMode {
                     Text("Ton fond d'écran n'est jamais modifié pendant que tu utilises le Mac. Verrouille avec ⌃⌘Q pour voir le résultat.")
                         .font(.system(size: 11))
@@ -38,6 +34,10 @@ struct MenuContent: View {
                 }
             }
             .font(.system(size: 12))
+
+            Divider()
+
+            spotifyAccount
 
             Divider()
 
@@ -82,6 +82,54 @@ struct MenuContent: View {
         }
         .padding(16)
         .frame(width: 300)
+    }
+
+    @ViewBuilder
+    private var spotifyAccount: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            sectionTitle("Compte Spotify (bouton ♥)")
+            if webAPI.isConnected {
+                HStack {
+                    Label("Connecté", systemImage: "checkmark.circle.fill")
+                        .foregroundStyle(.green)
+                    Spacer()
+                    Button("Se déconnecter") { webAPI.disconnect() }
+                }
+                .font(.system(size: 12))
+            } else {
+                Text("Pour que le ♥ soit rempli quand un morceau est déjà liké :\n1. developer.spotify.com/dashboard → Create app\n2. Redirect URI : \(SpotifyWebAPI.redirectURI)\n3. Coche « Web API », enregistre, copie le Client ID ici :")
+                    .font(.system(size: 11))
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .textSelection(.enabled)
+                TextField("Client ID", text: $clientID)
+                    .textFieldStyle(.roundedBorder)
+                    .font(.system(size: 11, design: .monospaced))
+                HStack {
+                    Button(webAPI.isConnecting ? "Connexion…" : "Se connecter à Spotify") { webAPI.connect() }
+                        .disabled(clientID.trimmingCharacters(in: .whitespaces).isEmpty)
+                    Spacer()
+                    Button("Ouvrir le dashboard") {
+                        NSWorkspace.shared.open(URL(string: "https://developer.spotify.com/dashboard")!)
+                    }
+                    .buttonStyle(.link)
+                }
+                .font(.system(size: 12))
+                if !spotify.canLike {
+                    Button("Ou : ♥ sans compte (autorisation Accessibilité)") {
+                        spotify.requestLikePermission()
+                    }
+                    .buttonStyle(.link)
+                    .font(.system(size: 11))
+                }
+            }
+            if let error = webAPI.lastError {
+                Text(error)
+                    .font(.system(size: 11))
+                    .foregroundStyle(.orange)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        }
     }
 
     private func sectionTitle(_ text: String) -> some View {

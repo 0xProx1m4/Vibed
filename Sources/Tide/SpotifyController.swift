@@ -34,14 +34,14 @@ final class SpotifyController: ObservableObject {
     @Published var scrubPosition: TimeInterval?
     /// Position survolée sur la barre de progression (0…1), pour la bulle de temps.
     @Published var hoverProgress: Double?
-    /// Morceaux likés depuis Tide (Spotify ne permet pas de lire cet état de l'extérieur).
-    @Published private(set) var likedTrackIDs: Set<String> = []
+    /// État « liké » connu par morceau (lu via l'API web si le compte est connecté).
+    @Published private var likedCache: [String: Bool] = [:]
 
-    var isCurrentTrackLiked: Bool { track.map { likedTrackIDs.contains($0.id) } ?? false }
+    var isCurrentTrackLiked: Bool { track.flatMap { likedCache[$0.id] } ?? false }
 
-    /// Le bouton ♥ envoie le raccourci « J'aime » de Spotify (⌥⇧B), ce qui demande
-    /// l'autorisation macOS d'envoyer des touches (Accessibilité).
-    var canLike: Bool { CGPreflightPostEventAccess() }
+    /// Sans compte connecté, le ♥ envoie le raccourci « J'aime » de Spotify (⌥⇧B),
+    /// ce qui demande l'autorisation macOS d'envoyer des touches (Accessibilité).
+    var canLike: Bool { SpotifyWebAPI.shared.isConnected || CGPreflightPostEventAccess() }
 
     private var position: TimeInterval = 0
     private var positionDate = Date()
@@ -108,12 +108,34 @@ final class SpotifyController: ObservableObject {
         _ = CGRequestPostEventAccess()
     }
 
-    /// Ajoute / retire le morceau des Titres likés via le raccourci de Spotify ⌥⇧B,
-    /// envoyé directement à l'app Spotify (pas besoin qu'elle soit au premier plan).
+    /// Demande à Spotify (API web) si le morceau en cours est dans les Titres likés.
+    func refreshLikedState() {
+        guard let track, Self.isLikeable(track.id), SpotifyWebAPI.shared.isConnected else { return }
+        let id = track.id
+        Task { [weak self] in
+            guard let liked = await SpotifyWebAPI.shared.isSaved(uri: id) else { return }
+            self?.likedCache[id] = liked
+        }
+    }
+
+    /// Ajoute / retire le morceau des Titres likés.
+    /// - Compte Spotify connecté : via l'API web (fiable, et l'état réel est connu).
+    /// - Sinon : raccourci Spotify ⌥⇧B envoyé directement à l'app (état inconnu).
     func toggleLike() {
-        guard let track,
-              let app = NSRunningApplication.runningApplications(withBundleIdentifier: Self.bundleID).first
-        else { return }
+        guard let track else { return }
+        let id = track.id
+        let newValue = !(likedCache[id] ?? false)
+
+        if SpotifyWebAPI.shared.isConnected, Self.isLikeable(id) {
+            likedCache[id] = newValue // affichage immédiat
+            Task { [weak self] in
+                let ok = await SpotifyWebAPI.shared.setSaved(newValue, uri: id)
+                if !ok { self?.likedCache[id] = !newValue }
+            }
+            return
+        }
+
+        guard let app = NSRunningApplication.runningApplications(withBundleIdentifier: Self.bundleID).first else { return }
         guard CGPreflightPostEventAccess() else {
             requestLikePermission()
             return
@@ -125,11 +147,11 @@ final class SpotifyController: ObservableObject {
             event?.flags = [.maskAlternate, .maskShift]
             event?.postToPid(app.processIdentifier)
         }
-        if likedTrackIDs.contains(track.id) {
-            likedTrackIDs.remove(track.id)
-        } else {
-            likedTrackIDs.insert(track.id)
-        }
+        likedCache[id] = newValue
+    }
+
+    private static func isLikeable(_ uri: String) -> Bool {
+        uri.hasPrefix("spotify:track:") || uri.hasPrefix("spotify:episode:")
     }
 
     func playPause() {
@@ -262,7 +284,9 @@ final class SpotifyController: ObservableObject {
     }
 
     private func update(track newTrack: Track, artworkURL: URL?, playing: Bool, position newPosition: TimeInterval) {
+        let trackChanged = newTrack.id != track?.id
         if newTrack != track { track = newTrack }
+        if trackChanged { refreshLikedState() }
         if playing != isPlaying { isPlaying = playing }
         position = newPosition
         positionDate = Date()
