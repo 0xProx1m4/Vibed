@@ -14,8 +14,8 @@ enum WallpaperRenderer {
         /// Flou du fond, de 0 (net, comme la référence) à 1.
         var blur: CGFloat = 0
 
-        /// Carte en portrait, comme sur l'écran de verrouillage de référence.
-        static let aspectRatio: CGFloat = 0.8
+        /// Pochette carrée.
+        static let aspectRatio: CGFloat = 1.0
 
         /// Rectangle de la carte, en coordonnées « depuis le haut » (pour une hauteur d'écran donnée).
         func cardRect(screenWidth: CGFloat, screenHeight: CGFloat) -> CGRect {

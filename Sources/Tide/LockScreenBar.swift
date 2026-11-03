@@ -102,12 +102,12 @@ final class LockScreenBar {
             coverCenter: defaults.double(forKey: Prefs.coverCenter)
         ).cardRect(screenWidth: frame.width, screenHeight: frame.height)
 
-        // Mesures de la référence : ~74 % de la largeur de la carte, ratio ~0,55,
-        // collée juste sous la carte (léger chevauchement).
+        // ~74 % de la largeur de la pochette, ratio ~0,55, sous la pochette
+        // avec un petit espace : elle ne la recouvre jamais.
         let barWidth = max(card.width * 0.74, 220)
         let s = barWidth / 250
         let barHeight = barWidth * 0.55
-        let barTop = card.maxY - frame.height * 0.004 // depuis le haut
+        let barTop = card.maxY + frame.height * 0.016 // depuis le haut
 
         let margin: CGFloat = 30 // place pour l'ombre
         let size = CGSize(width: barWidth + margin * 2, height: barHeight + margin * 2)

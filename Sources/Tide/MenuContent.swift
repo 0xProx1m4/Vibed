@@ -7,8 +7,8 @@ struct MenuContent: View {
     @AppStorage(Prefs.lockOnScreenSleep) private var lockOnScreenSleep = false
     @AppStorage(Prefs.wallpaperMode) private var wallpaperMode = true
     @AppStorage(Prefs.lockScreenBar) private var lockScreenBar = true
-    @AppStorage(Prefs.coverSize) private var coverSize = 0.435
-    @AppStorage(Prefs.coverCenter) private var coverCenter = 0.478
+    @AppStorage(Prefs.coverSize) private var coverSize = 0.38
+    @AppStorage(Prefs.coverCenter) private var coverCenter = 0.44
     @AppStorage(Prefs.backgroundBlur) private var backgroundBlur = 0.0
 
     var body: some View {
@@ -26,8 +26,8 @@ struct MenuContent: View {
                         .font(.system(size: 11))
                         .foregroundStyle(.secondary)
                         .fixedSize(horizontal: false, vertical: true)
-                    labeledSlider("Taille", value: $coverSize, range: 0.3...0.56)
-                    labeledSlider("Position", value: $coverCenter, range: 0.38...0.6)
+                    labeledSlider("Taille", value: $coverSize, range: 0.25...0.45)
+                    labeledSlider("Position", value: $coverCenter, range: 0.36...0.52)
                     labeledSlider("Flou", value: $backgroundBlur, range: 0...1)
                 }
             }
