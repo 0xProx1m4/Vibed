@@ -11,6 +11,8 @@ enum WallpaperRenderer {
         var coverSize: CGFloat
         /// Centre vertical de la carte, en fraction de la hauteur (0 = haut, 1 = bas).
         var coverCenter: CGFloat
+        /// Flou du fond, de 0 (net, comme la référence) à 1.
+        var blur: CGFloat = 0
 
         /// Carte en portrait, comme sur l'écran de verrouillage de référence.
         static let aspectRatio: CGFloat = 0.8
@@ -38,20 +40,27 @@ enum WallpaperRenderer {
         let canvas = CGRect(x: 0, y: 0, width: width, height: height)
         ctx.interpolationQuality = .high
 
-        // 1. Fond : pochette en « remplissage », légèrement zoomée et floutée
+        // 1. Fond : pochette en « remplissage », légèrement zoomée, nette par défaut.
+        //    Agrandissement Lanczos (bien plus net qu'un simple redimensionnement).
         let source = CIImage(cgImage: cover)
         let fill = max(width / source.extent.width, height / source.extent.height) * 1.12
-        let background = source
-            .transformed(by: CGAffineTransform(scaleX: fill, y: fill))
+        let scaled = source.applyingFilter("CILanczosScaleTransform", parameters: [
+            kCIInputScaleKey: fill,
+            kCIInputAspectRatioKey: 1.0,
+        ])
+        var background = scaled
             .transformed(by: CGAffineTransform(
-                translationX: (width - source.extent.width * fill) / 2,
-                y: (height - source.extent.height * fill) / 2
+                translationX: (width - scaled.extent.width) / 2 - scaled.extent.minX,
+                y: (height - scaled.extent.height) / 2 - scaled.extent.minY
             ))
             .clampedToExtent()
-            .applyingGaussianBlur(sigma: height * 0.009)
+        if layout.blur > 0 {
+            background = background.applyingGaussianBlur(sigma: height * 0.012 * layout.blur)
+        }
+        background = background
             .applyingFilter("CIColorControls", parameters: [
-                kCIInputSaturationKey: 1.12,
-                kCIInputBrightnessKey: -0.05,
+                kCIInputSaturationKey: 1.08,
+                kCIInputBrightnessKey: -0.02,
             ])
             .cropped(to: canvas)
 
@@ -62,12 +71,12 @@ enum WallpaperRenderer {
         // 2. Vignette pour faire ressortir l'horloge et le lecteur
         let black = { (a: CGFloat) in CGColor(srgbRed: 0, green: 0, blue: 0, alpha: a) }
         let center = CGPoint(x: width / 2, y: height / 2)
-        if let vignette = CGGradient(colorsSpace: space, colors: [black(0), black(0.5)] as CFArray, locations: [0, 1]) {
+        if let vignette = CGGradient(colorsSpace: space, colors: [black(0), black(0.3)] as CFArray, locations: [0, 1]) {
             ctx.drawRadialGradient(vignette, startCenter: center, startRadius: height * 0.3,
                                    endCenter: center, endRadius: max(width, height) * 0.75,
                                    options: [.drawsAfterEndLocation])
         }
-        if let top = CGGradient(colorsSpace: space, colors: [black(0.3), black(0)] as CFArray, locations: [0, 1]) {
+        if let top = CGGradient(colorsSpace: space, colors: [black(0.2), black(0)] as CFArray, locations: [0, 1]) {
             ctx.drawLinearGradient(top, start: CGPoint(x: 0, y: height), end: CGPoint(x: 0, y: height * 0.7), options: [])
         }
 

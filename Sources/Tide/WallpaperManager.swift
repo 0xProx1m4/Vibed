@@ -31,13 +31,15 @@ final class WallpaperManager {
         var enabled: Bool
         var coverSize: Double
         var coverCenter: Double
+        var blur: Double
 
         static var current: Settings {
             let d = UserDefaults.standard
             return Settings(
                 enabled: d.bool(forKey: Prefs.wallpaperMode),
                 coverSize: d.double(forKey: Prefs.coverSize),
-                coverCenter: d.double(forKey: Prefs.coverCenter)
+                coverCenter: d.double(forKey: Prefs.coverCenter),
+                blur: d.double(forKey: Prefs.backgroundBlur)
             )
         }
     }
@@ -182,7 +184,7 @@ final class WallpaperManager {
 
         generation += 1
         let gen = generation
-        let layout = WallpaperRenderer.Layout(coverSize: settings.coverSize, coverCenter: settings.coverCenter)
+        let layout = WallpaperRenderer.Layout(coverSize: settings.coverSize, coverCenter: settings.coverCenter, blur: settings.blur)
         let targets: [(id: String, size: CGSize)] = NSScreen.screens.compactMap { screen in
             guard let id = Self.displayID(of: screen) else { return nil }
             let scale = screen.backingScaleFactor

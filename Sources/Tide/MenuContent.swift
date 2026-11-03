@@ -9,6 +9,7 @@ struct MenuContent: View {
     @AppStorage(Prefs.lockScreenBar) private var lockScreenBar = true
     @AppStorage(Prefs.coverSize) private var coverSize = 0.44
     @AppStorage(Prefs.coverCenter) private var coverCenter = 0.472
+    @AppStorage(Prefs.backgroundBlur) private var backgroundBlur = 0.0
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
@@ -27,6 +28,7 @@ struct MenuContent: View {
                         .fixedSize(horizontal: false, vertical: true)
                     labeledSlider("Taille", value: $coverSize, range: 0.3...0.56)
                     labeledSlider("Position", value: $coverCenter, range: 0.38...0.6)
+                    labeledSlider("Flou", value: $backgroundBlur, range: 0...1)
                 }
             }
             .font(.system(size: 12))

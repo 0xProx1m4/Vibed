@@ -252,15 +252,34 @@ final class SpotifyController: ObservableObject {
         artworkTask = Task { [weak self] in
             var imageURL = url
             if imageURL == nil { imageURL = await Self.oEmbedThumbnail(for: trackID) }
-            guard let imageURL,
-                  let (data, _) = try? await URLSession.shared.data(from: imageURL),
-                  let image = NSImage(data: data),
-                  !Task.isCancelled,
-                  let self else { return }
+            guard let imageURL else { return }
+
+            // Version haute définition (2000 px) si Spotify l'a, sinon l'image normale (640 px).
+            var image: NSImage?
+            if let hiRes = Self.highResolutionURL(for: imageURL) {
+                image = await Self.downloadImage(hiRes)
+            }
+            if image == nil { image = await Self.downloadImage(imageURL) }
+            guard let image, !Task.isCancelled, let self else { return }
             if self.artworkCache.count > 40 { self.artworkCache.removeAll() }
             self.artworkCache[trackID] = image
             if self.artworkTrackID == trackID { self.artwork = image }
         }
+    }
+
+    /// Les URL de pochette Spotify encodent la taille : …ab67616d0000b273… = 640 px,
+    /// …ab67616d000082c1… = taille d'origine (souvent 2000 px).
+    nonisolated private static func highResolutionURL(for url: URL) -> URL? {
+        let string = url.absoluteString
+        guard let range = string.range(of: "ab67616d0000[0-9a-fA-F]{4}", options: .regularExpression) else { return nil }
+        let hiRes = string.replacingCharacters(in: range, with: "ab67616d000082c1")
+        return hiRes == string ? nil : URL(string: hiRes)
+    }
+
+    nonisolated private static func downloadImage(_ url: URL) async -> NSImage? {
+        guard let (data, response) = try? await URLSession.shared.data(from: url),
+              (response as? HTTPURLResponse)?.statusCode ?? 200 == 200 else { return nil }
+        return NSImage(data: data)
     }
 
     /// Pochette via l'API publique oEmbed de Spotify (sans compte ni clé).
