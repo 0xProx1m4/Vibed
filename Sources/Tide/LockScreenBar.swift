@@ -174,6 +174,12 @@ private struct LockBarContent: View {
     }
 }
 
+/// « 3:07 » à partir d'un nombre de secondes.
+private func formatTime(_ t: TimeInterval) -> String {
+    let total = max(Int(t.rounded(.down)), 0)
+    return String(format: "%d:%02d", total / 60, total % 60)
+}
+
 /// Petite bulle de temps au survol de la barre de progression, façon Apple.
 private struct TimeBubble: View {
     let text: String
@@ -352,7 +358,7 @@ private struct CompactPlayer: View {
         let bubble: Double? = scrubbing ? fraction : hover
 
         return HStack(spacing: 7 * s) {
-            Text(PlayerCard.format(current))
+            Text(formatTime(current))
             GeometryReader { g in
                 let width = g.size.width
                 ZStack(alignment: .leading) {
@@ -369,7 +375,7 @@ private struct CompactPlayer: View {
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .overlay {
                     if let bubble {
-                        TimeBubble(text: PlayerCard.format(bubble * duration), s: s)
+                        TimeBubble(text: formatTime(bubble * duration), s: s)
                             .position(x: Self.clampBubble(bubble * width, width: width, s: s), y: -9 * s)
                             .transition(.opacity.combined(with: .scale(scale: 0.85, anchor: .bottom)))
                     }
@@ -397,7 +403,7 @@ private struct CompactPlayer: View {
                 .animation(.easeOut(duration: 0.15), value: bubble == nil)
             }
             .frame(height: 12 * s)
-            Text("-" + PlayerCard.format(track.duration - current))
+            Text("-" + formatTime(track.duration - current))
         }
         .font(.system(size: 8.5 * s, weight: .medium).monospacedDigit())
         .foregroundStyle(.white.opacity(0.7))

@@ -5,8 +5,6 @@ struct MenuContent: View {
     @ObservedObject private var spotify = SpotifyController.shared
     @ObservedObject private var webAPI = SpotifyWebAPI.shared
     @AppStorage(Prefs.spotifyClientID) private var clientID = ""
-    @AppStorage(Prefs.autoLockMinutes) private var autoLockMinutes = 0
-    @AppStorage(Prefs.lockOnScreenSleep) private var lockOnScreenSleep = false
     @AppStorage(Prefs.wallpaperMode) private var wallpaperMode = true
     @AppStorage(Prefs.lockScreenBar) private var lockScreenBar = true
     @AppStorage(Prefs.coverSize) private var coverSize = 0.38
@@ -38,40 +36,6 @@ struct MenuContent: View {
             Divider()
 
             spotifyAccount
-
-            Divider()
-
-            sectionTitle("Écran Tide")
-
-            Button {
-                LockScreenManager.shared.lock()
-            } label: {
-                HStack {
-                    Image(systemName: "lock.fill")
-                    Text("Verrouiller maintenant")
-                    Spacer()
-                    Text("⌃⌥⌘L").foregroundStyle(.secondary)
-                }
-                .font(.system(size: 13, weight: .semibold))
-                .padding(.horizontal, 14)
-                .padding(.vertical, 10)
-                .contentShape(Rectangle())
-                .liquidGlass(cornerRadius: 12)
-            }
-            .buttonStyle(PressableStyle())
-
-            VStack(alignment: .leading, spacing: 10) {
-                Picker("Verrouillage auto", selection: $autoLockMinutes) {
-                    Text("Jamais").tag(0)
-                    Text("1 min").tag(1)
-                    Text("2 min").tag(2)
-                    Text("5 min").tag(5)
-                    Text("10 min").tag(10)
-                    Text("15 min").tag(15)
-                }
-                Toggle("Verrouiller quand l'écran s'éteint", isOn: $lockOnScreenSleep)
-            }
-            .font(.system(size: 12))
 
             Divider()
 

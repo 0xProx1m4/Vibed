@@ -16,8 +16,6 @@ d'écran d'origine revient exactement comme avant (y compris les fonds aériens/
 sur ton bureau, rien ne change. Le lecteur natif de macOS sur l'écran verrouillé permet de
 mettre en pause, passer au morceau suivant et voir la barre de durée.
 
-Tide propose en plus son propre écran de verrouillage (`⌃⌥⌘L`), entièrement personnalisé.
-
 ## Installation
 
 Il faut un Mac avec Xcode (ou les Command Line Tools) installé.
@@ -67,32 +65,10 @@ Si le lecteur de macOS n'apparaît pas sur l'écran de verrouillage : Réglages 
 Limites : le fond d'écran n'est changé que sur l'Espace (bureau) actif de chaque écran.
 Les fonds d'écran animés d'Apple (« aériens ») peuvent ne pas être restaurés à l'identique.
 
-## Écran Tide (optionnel)
-
-
-
-| Action | Comment |
-|---|---|
-| Verrouiller | `⌃⌥⌘L`, ou icône 🌊 dans la barre des menus → *Verrouiller maintenant* |
-| Lecture / pause | `Espace` ou bouton ⏯ |
-| Morceau précédent / suivant | `←` / `→` ou boutons |
-| Avancer dans le morceau | glisser sur la barre de progression |
-| Déverrouiller | clic sur le fond ou n'importe quelle autre touche → Touch ID / mot de passe du Mac |
-
-Dans le menu 🌊 : verrouillage auto après X minutes d'inactivité, et verrouillage quand l'écran s'éteint.
-
 ## Bon à savoir
 
 - **Liquid Glass** : sur macOS 26 (Tahoe), compilé avec Xcode 26, Tide utilise le vrai
   matériau `glassEffect`. Sur les versions plus anciennes, il l'imite (flou + reflets).
-- macOS ne laisse aucune app tierce dessiner sur le *vrai* écran de verrouillage du système.
-  Tide affiche donc **son propre écran**, par‑dessus tout (Dock, barre des menus,
-  ⌘Tab et Forcer à quitter sont bloqués), et ne le retire qu'avec ton Touch ID ou ton mot de passe.
-  Ça ne remplace pas totalement le verrouillage système (ex. un redémarrage forcé le contourne) :
-  pour une sécurité maximale, garde aussi le verrouillage macOS activé.
-- Si « Verrouiller quand l'écran s'éteint » est activé et que macOS demande déjà le mot de passe
-  à la sortie de veille, tu devras t'authentifier deux fois. Dans ce cas, mets un délai dans
-  Réglages Système → Écran verrouillé, ou désactive l'option.
 - Comme l'app est signée en ad‑hoc, macOS peut redemander l'autorisation Spotify après chaque rebuild.
 
 ## Dépannage : « Rien en lecture »
@@ -112,17 +88,14 @@ fais play/pause (Spotify diffuse l'info), mais les boutons ne fonctionneront pas
 
 ```
 Sources/Tide/
-  TideApp.swift            app barre des menus, raccourci, verrouillage auto
+  TideApp.swift            app barre des menus
   WallpaperManager.swift   pochette → fond d'écran (vrai écran de verrouillage)
   WallpaperRenderer.swift  génération de l'image de fond
   LockScreenBar.swift      barre Liquid Glass sur le vrai écran verrouillé
   SpotifyWebAPI.swift      connexion au compte Spotify (♥ et état liké)
   AudioOutputs.swift       liste et choix de la sortie audio (CoreAudio)
   SkyLight.swift           accès privé au serveur de fenêtres (au-dessus du verrouillage)
-  LockScreenManager.swift  fenêtres plein écran + Touch ID
-  LockScreenView.swift     l'écran : fond, horloge, pochette, lecteur
   SpotifyController.swift  lecture/pilotage de Spotify via AppleScript
   Glass.swift              effet Liquid Glass (natif macOS 26 + imitation)
   MenuContent.swift        panneau de la barre des menus
-  HotKey.swift             raccourci global ⌃⌥⌘L
 ```
