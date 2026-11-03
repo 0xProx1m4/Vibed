@@ -47,18 +47,19 @@ final class SpotifyController: ObservableObject {
     private var position: TimeInterval = 0
     private var positionDate = Date()
     private var timer: Timer?
-    private var artworkTask: Task<Void, Never>?
-    private var artworkTrackID: String?
-    /// Le chargement en cours part de la vraie URL (et non d'une recherche oEmbed).
-    private var artworkHasURL = false
+    /// Pochettes déjà téléchargées (décodées), par morceau.
     private var artworkCache: [String: NSImage] = [:]
+    /// Morceaux dont la pochette en cache est déjà la version haute définition.
+    private var hiResCached: Set<String> = []
     /// Ordre d'arrivée dans le cache, pour oublier les plus anciennes pochettes en premier.
     private var artworkCacheOrder: [String] = []
-    /// Nombre de morceaux à venir dont la pochette est téléchargée à l'avance.
+    /// Un seul téléchargement par morceau, partagé entre le morceau en cours et le préchargement.
+    private var artworkLoads: [String: Task<Void, Never>] = [:]
+    private var queueTask: Task<Void, Never>?
+    private var lastQueueCheck = Date.distantPast
+    /// Nombre de morceaux à venir dont la pochette est gardée prête.
     private static let prefetchCount = 5
     private static let artworkCacheLimit = 30
-    /// Morceaux dont la pochette est en cours de préchargement.
-    private var prefetching: Set<String> = []
     private var accessCheckInFlight = false
 
     private static let bundleID = "com.spotify.client"
@@ -296,118 +297,109 @@ final class SpotifyController: ObservableObject {
     private func update(track newTrack: Track, artworkURL: URL?, playing: Bool, position newPosition: TimeInterval) {
         let trackChanged = newTrack.id != track?.id
         if newTrack != track { track = newTrack }
-        if trackChanged {
-            refreshLikedState()
-            prefetchUpcomingArtwork()
-        }
+        if trackChanged { refreshLikedState() }
         if playing != isPlaying { isPlaying = playing }
         position = newPosition
         positionDate = Date()
         if lastError != nil { lastError = nil }
+        // D'abord la pochette du morceau en cours (souvent déjà en cache → instantané)…
         loadArtworkIfNeeded(trackID: newTrack.id, url: artworkURL)
+        // …puis on complète les 5 suivantes. Aussi de temps en temps, si la file a changé.
+        if trackChanged || Date().timeIntervalSince(lastQueueCheck) > 45 {
+            prefetchUpcomingArtwork()
+        }
     }
 
     private func clear() {
         if track != nil { track = nil }
         if isPlaying { isPlaying = false }
         if artwork != nil { artwork = nil }
-        artworkTrackID = nil
-        artworkTask?.cancel()
     }
 
     // MARK: - Pochette
 
     private func loadArtworkIfNeeded(trackID: String, url: URL?) {
-        // Déjà en cours pour ce morceau : on ne relance que si on reçoit enfin la vraie URL
-        // alors qu'on était parti sur la recherche oEmbed (plus lente).
-        if trackID == artworkTrackID, url == nil || artworkHasURL { return }
+        // En cache (préchargée) : affichage immédiat.
+        if let cached = artworkCache[trackID], artwork !== cached { artwork = cached }
+
+        // Déjà en cours de téléchargement (préchargement compris) : il mettra la pochette
+        // à jour à son arrivée. Ou déjà en haute définition : rien à faire.
+        guard artworkLoads[trackID] == nil, !hiResCached.contains(trackID) else { return }
+        if artworkCache[trackID] != nil, url == nil { return }
 
         // La notification de Spotify n'a pas l'URL de la pochette, mais le script lancé
         // juste après l'a : on l'attend plutôt que de faire une recherche réseau en plus.
-        if url == nil, access == .granted, artworkCache[trackID] == nil {
-            return
-        }
+        if url == nil, access == .granted { return }
 
-        artworkTrackID = trackID
-        artworkHasURL = url != nil
-        artworkTask?.cancel()
+        startArtworkLoad(trackID: trackID, url: url)
+    }
 
-        if let cached = artworkCache[trackID] { artwork = cached; return }
-
-        artworkTask = Task { [weak self] in
-            var imageURL = url
-            if imageURL == nil { imageURL = await Self.oEmbedThumbnail(for: trackID) }
-            guard let imageURL, !Task.isCancelled else { return }
-
-            // 1. Pochette normale (640 px, légère) affichée tout de suite…
-            let hiResURL = Self.highResolutionURL(for: imageURL)
-            async let hiResDownload = Self.downloadImage(hiResURL)
-            if let quick = await Self.downloadImage(imageURL), !Task.isCancelled, let self,
-               self.artworkTrackID == trackID {
-                self.artwork = quick
-            }
-
-            // 2. …puis remplacée par la version haute définition (2000 px) si Spotify l'a.
-            let best = await hiResDownload
-            guard !Task.isCancelled, let self, self.artworkTrackID == trackID else { return }
-            if let best { self.artwork = best }
-            if let image = best ?? self.artwork { self.cache(image, for: trackID) }
+    private func startArtworkLoad(trackID: String, url: URL?) {
+        artworkLoads[trackID] = Task { [weak self] in
+            await self?.fetchArtwork(trackID: trackID, url: url)
+            self?.artworkLoads[trackID] = nil
         }
     }
 
-    private func cache(_ image: NSImage, for trackID: String) {
+    /// Télécharge la pochette 640 px (légère, prête vite) et, en même temps, la version
+    /// haute définition (2000 px) qui la remplace dès qu'elle arrive. Chaque version est
+    /// mise en cache et affichée si le morceau est celui en cours.
+    private func fetchArtwork(trackID: String, url: URL?) async {
+        var imageURL = url
+        if imageURL == nil { imageURL = await Self.oEmbedThumbnail(for: trackID) }
+        guard let imageURL else { return }
+
+        async let hiRes = Self.downloadImage(Self.highResolutionURL(for: imageURL))
+        if artworkCache[trackID] == nil, let quick = await Self.downloadImage(imageURL) {
+            store(quick, for: trackID, hiRes: false)
+        }
+        if let best = await hiRes {
+            store(best, for: trackID, hiRes: true)
+        } else if artworkCache[trackID] != nil {
+            hiResCached.insert(trackID) // pas de version HD chez Spotify : la 640 px suffit
+        }
+    }
+
+    private func store(_ image: NSImage, for trackID: String, hiRes: Bool) {
+        if !hiRes, hiResCached.contains(trackID) { return } // la HD est arrivée la première
+        if hiRes { hiResCached.insert(trackID) }
         artworkCacheOrder.removeAll { $0 == trackID }
         artworkCacheOrder.append(trackID)
         artworkCache[trackID] = image
         // On oublie les plus anciennes ; le morceau en cours et ceux à venir sont les plus récents.
         while artworkCacheOrder.count > Self.artworkCacheLimit {
-            artworkCache[artworkCacheOrder.removeFirst()] = nil
+            let old = artworkCacheOrder.removeFirst()
+            artworkCache[old] = nil
+            hiResCached.remove(old)
         }
+        if track?.id == trackID, artwork !== image { artwork = image }
     }
 
-    /// Garde en cache les pochettes des 5 prochains morceaux de la file (compte Spotify
-    /// connecté). Relancé à chaque changement de morceau : la fenêtre avance avec la lecture,
-    /// seules les pochettes manquantes sont téléchargées (en parallèle), et au morceau suivant
-    /// la pochette est déjà là.
-    private func prefetchUpcomingArtwork() {
+    /// Garde prêtes les pochettes des 5 prochains morceaux de la file (compte Spotify
+    /// connecté). Au premier lancement, les 5 sont téléchargées en parallèle ; ensuite, à
+    /// chaque changement de morceau, seule la nouvelle venue en fin de fenêtre manque.
+    func prefetchUpcomingArtwork() {
         guard SpotifyWebAPI.shared.isConnected else { return }
-        // Pas d'annulation de la vague précédente : ses téléchargements en cours servent
-        // encore (les doublons sont écartés grâce à `prefetching`).
-        Task { [weak self] in
-            // Un court instant pour laisser partir d'abord la pochette du morceau en cours,
-            // et pour que Spotify ait mis sa file à jour.
-            try? await Task.sleep(nanoseconds: 400_000_000)
-            let upcoming = await SpotifyWebAPI.shared.upcomingArtwork(limit: Self.prefetchCount)
-            guard let self else { return }
-
-            let missing = upcoming.filter { self.artworkCache[$0.uri] == nil && !self.prefetching.contains($0.uri) }
-            guard !missing.isEmpty else { return }
-            missing.forEach { self.prefetching.insert($0.uri) }
-            defer { missing.forEach { self.prefetching.remove($0.uri) } }
-
-            await withTaskGroup(of: DownloadedArtwork.self) { group in
-                for (uri, url) in missing {
-                    group.addTask {
-                        var image = await Self.downloadImage(Self.highResolutionURL(for: url))
-                        if image == nil { image = await Self.downloadImage(url) }
-                        return DownloadedArtwork(uri: uri, image: image)
+        lastQueueCheck = Date()
+        queueTask?.cancel()
+        queueTask = Task { [weak self] in
+            // Juste après un saut, Spotify peut renvoyer l'ancienne file un court instant :
+            // on redemande tant qu'elle ne commence pas par le morceau en cours.
+            for attempt in 0..<4 {
+                if attempt > 0 { try? await Task.sleep(nanoseconds: 350_000_000) }
+                guard !Task.isCancelled,
+                      let queue = await SpotifyWebAPI.shared.queue(limit: Self.prefetchCount),
+                      !Task.isCancelled, let self else { return }
+                let isFresh = queue.current == nil || queue.current == self.track?.id
+                if isFresh || attempt == 3 {
+                    for (uri, url) in queue.upcoming
+                    where self.artworkLoads[uri] == nil && !self.hiResCached.contains(uri) {
+                        self.startArtworkLoad(trackID: uri, url: url)
                     }
-                }
-                for await result in group {
-                    if let image = result.image, self.artworkCache[result.uri] == nil {
-                        self.cache(image, for: result.uri)
-                    }
+                    return
                 }
             }
         }
-    }
-
-    /// Pochette téléchargée en tâche de fond. L'image n'est plus modifiée une fois créée :
-    /// on peut la passer sans risque au thread principal (NSImage n'est déclarée `Sendable`
-    /// qu'à partir de macOS 14).
-    private struct DownloadedArtwork: @unchecked Sendable {
-        let uri: String
-        let image: NSImage?
     }
 
     /// Les URL de pochette Spotify encodent la taille : …ab67616d0000b273… = 640 px,

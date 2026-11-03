@@ -107,15 +107,23 @@ final class SpotifyWebAPI: ObservableObject {
     /// Le jeton actuel n'a pas le droit de lire la file (compte connecté avant l'ajout de ce droit).
     @Published private(set) var queueForbidden = false
 
-    /// Prochains morceaux de la file, avec l'URL de leur pochette (640 px).
-    /// Vide si le compte n'est pas connecté ou s'il faut se reconnecter pour donner ce droit.
-    func upcomingArtwork(limit: Int) async -> [(uri: String, url: URL)] {
+    struct Queue {
+        /// Morceau en cours selon Spotify (pour vérifier que la file est à jour).
+        let current: String?
+        /// Prochains morceaux, avec l'URL de leur pochette (640 px).
+        let upcoming: [(uri: String, url: URL)]
+    }
+
+    /// File d'attente de Spotify. `nil` si le compte n'est pas connecté, en cas d'erreur,
+    /// ou s'il faut se reconnecter pour donner ce droit.
+    func queue(limit: Int) async -> Queue? {
         guard !queueForbidden,
               let data = await call("GET", path: "/me/player/queue", quiet: true),
-              let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-              let queue = json["queue"] as? [[String: Any]] else { return [] }
+              let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else { return nil }
+        let items = json["queue"] as? [[String: Any]] ?? []
+        let current = (json["currently_playing"] as? [String: Any])?["uri"] as? String
 
-        return queue.prefix(limit).compactMap { item in
+        let upcoming: [(uri: String, url: URL)] = items.prefix(limit).compactMap { item in
             guard let uri = item["uri"] as? String,
                   let album = item["album"] as? [String: Any],
                   let images = album["images"] as? [[String: Any]] else { return nil }
@@ -124,6 +132,7 @@ final class SpotifyWebAPI: ObservableObject {
             guard let string = pick?["url"] as? String, let url = URL(string: string) else { return nil }
             return (uri, url)
         }
+        return Queue(current: current, upcoming: upcoming)
     }
 
     private func call(_ method: String, path: String, uris: [String]? = nil, quiet: Bool = false) async -> Data? {
@@ -182,6 +191,7 @@ final class SpotifyWebAPI: ObservableObject {
             lastError = nil
             queueForbidden = false
             SpotifyController.shared.refreshLikedState()
+            SpotifyController.shared.prefetchUpcomingArtwork()
         }
     }
 
