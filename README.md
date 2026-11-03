@@ -43,6 +43,19 @@ Dans le menu 🌊 : verrouillage auto après X minutes d'inactivité, et verroui
   Réglages Système → Écran verrouillé, ou désactive l'option.
 - Comme l'app est signée en ad‑hoc, macOS peut redemander l'autorisation Spotify après chaque rebuild.
 
+## Dépannage : « Rien en lecture »
+
+1. Ouvre le menu 🌊 : s'il affiche un avertissement orange, clique sur le bouton proposé.
+2. Vérifie Réglages Système › Confidentialité et sécurité › Automatisation › **Tide** › **Spotify** coché.
+3. Si rien n'apparaît ou si ça bloque après un rebuild, remets l'autorisation à zéro puis relance Tide :
+
+   ```bash
+   tccutil reset AppleEvents app.tide.lockscreen
+   ```
+
+Même sans cette autorisation, Tide affiche le morceau dès que tu changes de piste ou que tu
+fais play/pause (Spotify diffuse l'info), mais les boutons ne fonctionneront pas.
+
 ## Structure
 
 ```

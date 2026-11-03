@@ -10,6 +10,8 @@ struct MenuContent: View {
         VStack(alignment: .leading, spacing: 14) {
             nowPlaying
 
+            accessBanner
+
             Button {
                 LockScreenManager.shared.lock()
             } label: {
@@ -49,6 +51,40 @@ struct MenuContent: View {
         }
         .padding(16)
         .frame(width: 300)
+    }
+
+    @ViewBuilder
+    private var accessBanner: some View {
+        if spotify.isRunning && spotify.access != .granted {
+            VStack(alignment: .leading, spacing: 8) {
+                Label(
+                    spotify.access == .denied
+                        ? "Tide n'a pas le droit de contrôler Spotify."
+                        : "Tide a besoin d'accéder à Spotify.",
+                    systemImage: "exclamationmark.triangle.fill"
+                )
+                .font(.system(size: 12, weight: .semibold))
+                .foregroundStyle(.orange)
+
+                if spotify.access == .denied {
+                    Text("Réglages Système › Confidentialité et sécurité › Automatisation › Tide → coche Spotify.")
+                        .font(.system(size: 11))
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                    Button("Ouvrir les réglages") { spotify.openAutomationSettings() }
+                } else {
+                    Button("Autoriser l'accès à Spotify") { spotify.requestAccess() }
+                }
+            }
+            .padding(10)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .liquidGlass(cornerRadius: 10)
+        } else if let error = spotify.lastError, spotify.track == nil {
+            Text("Spotify : \(error)")
+                .font(.system(size: 11))
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+        }
     }
 
     @ViewBuilder
