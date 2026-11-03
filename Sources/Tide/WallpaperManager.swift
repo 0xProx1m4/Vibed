@@ -185,17 +185,19 @@ final class WallpaperManager {
         generation += 1
         let gen = generation
         let layout = WallpaperRenderer.Layout(coverSize: settings.coverSize, coverCenter: settings.coverCenter, blur: settings.blur)
-        let targets: [(id: String, size: CGSize)] = NSScreen.screens.compactMap { screen in
+        // L'écran principal est celui où macOS affiche l'horloge : c'est le seul qui reçoit la carte.
+        let mainID = NSScreen.screens.first.flatMap(Self.displayID(of:))
+        let targets: [(id: String, size: CGSize, main: Bool)] = NSScreen.screens.compactMap { screen in
             guard let id = Self.displayID(of: screen) else { return nil }
             let scale = screen.backingScaleFactor
-            return (id, CGSize(width: screen.frame.width * scale, height: screen.frame.height * scale))
+            return (id, CGSize(width: screen.frame.width * scale, height: screen.frame.height * scale), id == mainID)
         }
         let folder = self.folder
 
         renderQueue.async { [weak self] in
             var files: [String: URL] = [:]
             for target in targets {
-                guard let data = WallpaperRenderer.render(cover: cover, pixelSize: target.size, layout: layout) else { continue }
+                guard let data = WallpaperRenderer.render(cover: cover, pixelSize: target.size, layout: layout, drawsCard: target.main) else { continue }
                 // Nom unique : macOS ne recharge pas une image dont le chemin n'a pas changé.
                 let url = folder.appendingPathComponent("tide-\(target.id)-\(UUID().uuidString.prefix(8)).jpg")
                 if (try? data.write(to: url, options: .atomic)) != nil { files[target.id] = url }

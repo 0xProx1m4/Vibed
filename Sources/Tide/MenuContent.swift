@@ -7,8 +7,8 @@ struct MenuContent: View {
     @AppStorage(Prefs.lockOnScreenSleep) private var lockOnScreenSleep = false
     @AppStorage(Prefs.wallpaperMode) private var wallpaperMode = true
     @AppStorage(Prefs.lockScreenBar) private var lockScreenBar = true
-    @AppStorage(Prefs.coverSize) private var coverSize = 0.44
-    @AppStorage(Prefs.coverCenter) private var coverCenter = 0.472
+    @AppStorage(Prefs.coverSize) private var coverSize = 0.435
+    @AppStorage(Prefs.coverCenter) private var coverCenter = 0.478
     @AppStorage(Prefs.backgroundBlur) private var backgroundBlur = 0.0
 
     var body: some View {

@@ -4,28 +4,33 @@ extension View {
     /// Effet « Liquid Glass ». Utilise le vrai matériau de macOS 26 quand il est disponible,
     /// sinon une imitation (matériau flouté + reflets sur les bords).
     @ViewBuilder
-    func liquidGlass<S: Shape>(_ shape: S) -> some View {
+    func liquidGlass<S: Shape>(_ shape: S, darkness: Double = 0) -> some View {
         #if compiler(>=6.2)
         if #available(macOS 26.0, *) {
-            self.glassEffect(.regular.interactive(), in: shape)
+            self.glassEffect(
+                darkness > 0 ? .regular.tint(.black.opacity(darkness)).interactive() : .regular.interactive(),
+                in: shape
+            )
         } else {
-            self.modifier(FallbackGlass(shape: shape))
+            self.modifier(FallbackGlass(shape: shape, darkness: darkness))
         }
         #else
-        self.modifier(FallbackGlass(shape: shape))
+        self.modifier(FallbackGlass(shape: shape, darkness: darkness))
         #endif
     }
 
-    func liquidGlass(cornerRadius: CGFloat) -> some View {
-        liquidGlass(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
+    func liquidGlass(cornerRadius: CGFloat, darkness: Double = 0) -> some View {
+        liquidGlass(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous), darkness: darkness)
     }
 }
 
 private struct FallbackGlass<S: Shape>: ViewModifier {
     let shape: S
+    var darkness: Double = 0
 
     func body(content: Content) -> some View {
         content
+            .background(shape.fill(Color.black.opacity(darkness)))
             .background(.ultraThinMaterial, in: shape)
             .background(shape.fill(Color.white.opacity(0.05)))
             .overlay(

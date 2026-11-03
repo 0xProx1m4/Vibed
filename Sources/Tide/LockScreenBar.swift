@@ -102,11 +102,12 @@ final class LockScreenBar {
             coverCenter: defaults.double(forKey: Prefs.coverCenter)
         ).cardRect(screenWidth: frame.width, screenHeight: frame.height)
 
-        // Comme sur la référence : ~72 % de la largeur de la carte, chevauche son bas.
-        let barWidth = max(card.width * 0.72, 220)
+        // Mesures de la référence : ~74 % de la largeur de la carte, ratio ~0,55,
+        // collée juste sous la carte (léger chevauchement).
+        let barWidth = max(card.width * 0.74, 220)
         let s = barWidth / 250
-        let barHeight = 112 * s
-        let barTop = card.maxY - frame.height * 0.014 // depuis le haut
+        let barHeight = barWidth * 0.55
+        let barTop = card.maxY - frame.height * 0.004 // depuis le haut
 
         let margin: CGFloat = 30 // place pour l'ombre
         let size = CGSize(width: barWidth + margin * 2, height: barHeight + margin * 2)
@@ -139,7 +140,7 @@ private struct LockBarContent: View {
             if let track = spotify.track {
                 CompactPlayer(track: track, s: s)
                     .frame(width: width, height: height)
-                    .liquidGlass(cornerRadius: 22 * s)
+                    .liquidGlass(cornerRadius: height * 0.13, darkness: 0.28)
                     .padding(.top, margin)
                     .transition(.opacity)
             }
@@ -155,39 +156,48 @@ private struct CompactPlayer: View {
     let s: CGFloat
 
     var body: some View {
-        VStack(spacing: 7 * s) {
+        VStack(spacing: 0) {
+            Spacer(minLength: 0)
+
+            // Titre + artiste, centrés ; petite onde à droite
             ZStack {
                 VStack(spacing: 1 * s) {
                     Text(track.title)
-                        .font(.system(size: 11.5 * s, weight: .semibold))
+                        .font(.system(size: 11 * s, weight: .semibold))
                     Text(track.artist)
-                        .font(.system(size: 10.5 * s, weight: .medium))
+                        .font(.system(size: 10 * s, weight: .medium))
                         .foregroundStyle(.white.opacity(0.7))
                 }
                 .lineLimit(1)
-                .padding(.horizontal, 18 * s)
+                .padding(.horizontal, 16 * s)
 
                 HStack {
                     Spacer()
                     Image(systemName: "waveform")
-                        .font(.system(size: 9 * s, weight: .semibold))
+                        .font(.system(size: 8.5 * s, weight: .bold))
                         .foregroundStyle(.white.opacity(spotify.isPlaying ? 0.75 : 0.3))
                 }
             }
+
+            Spacer(minLength: 0).frame(maxHeight: 8 * s)
 
             TimelineView(.periodic(from: .now, by: 0.5)) { ctx in
                 progress(current: spotify.scrubPosition ?? spotify.position(at: ctx.date))
             }
 
-            HStack(spacing: 30 * s) {
+            Spacer(minLength: 0)
+
+            HStack(spacing: 26 * s) {
                 button("backward.fill", size: 14 * s) { spotify.previous() }
                 button(spotify.isPlaying ? "pause.fill" : "play.fill", size: 19 * s) { spotify.playPause() }
                 button("forward.fill", size: 14 * s) { spotify.next() }
             }
+
+            Spacer(minLength: 0)
         }
         .foregroundStyle(.white)
         .padding(.horizontal, 14 * s)
-        .padding(.vertical, 10 * s)
+        .padding(.vertical, 8 * s)
     }
 
     private func button(_ symbol: String, size: CGFloat, action: @escaping () -> Void) -> some View {

@@ -27,7 +27,7 @@ enum WallpaperRenderer {
 
     private static let ciContext = CIContext(options: [.cacheIntermediates: false])
 
-    static func render(cover: CGImage, pixelSize: CGSize, layout: Layout) -> Data? {
+    static func render(cover: CGImage, pixelSize: CGSize, layout: Layout, drawsCard: Bool = true) -> Data? {
         let width = pixelSize.width.rounded()
         let height = pixelSize.height.rounded()
         guard width > 0, height > 0,
@@ -80,35 +80,37 @@ enum WallpaperRenderer {
             ctx.drawLinearGradient(top, start: CGPoint(x: 0, y: height), end: CGPoint(x: 0, y: height * 0.7), options: [])
         }
 
-        // 3. Pochette nette, coins arrondis, ombre portée
-        let card = layout.cardRect(screenWidth: width, screenHeight: height)
-        // CoreGraphics : origine en bas
-        let rect = CGRect(x: card.minX, y: height - card.maxY, width: card.width, height: card.height)
-        let side = rect.height
-        let radius = rect.width * 0.05
-        let path = CGPath(roundedRect: rect, cornerWidth: radius, cornerHeight: radius, transform: nil)
+        if drawsCard {
+            // 3. Pochette nette, coins arrondis, ombre portée
+            let card = layout.cardRect(screenWidth: width, screenHeight: height)
+            // CoreGraphics : origine en bas
+            let rect = CGRect(x: card.minX, y: height - card.maxY, width: card.width, height: card.height)
+            let side = rect.height
+            let radius = rect.width * 0.04
+            let path = CGPath(roundedRect: rect, cornerWidth: radius, cornerHeight: radius, transform: nil)
 
-        ctx.saveGState()
-        ctx.setShadow(offset: CGSize(width: 0, height: -side * 0.05), blur: side * 0.16, color: black(0.55))
-        ctx.addPath(path)
-        ctx.setFillColor(black(1))
-        ctx.fillPath()
-        ctx.restoreGState()
+            ctx.saveGState()
+            ctx.setShadow(offset: CGSize(width: 0, height: -side * 0.05), blur: side * 0.16, color: black(0.55))
+            ctx.addPath(path)
+            ctx.setFillColor(black(1))
+            ctx.fillPath()
+            ctx.restoreGState()
 
-        ctx.saveGState()
-        ctx.addPath(path)
-        ctx.clip()
-        let scale = max(rect.width / CGFloat(cover.width), rect.height / CGFloat(cover.height))
-        let drawW = CGFloat(cover.width) * scale
-        let drawH = CGFloat(cover.height) * scale
-        ctx.draw(cover, in: CGRect(x: rect.midX - drawW / 2, y: rect.midY - drawH / 2, width: drawW, height: drawH))
-        ctx.restoreGState()
+            ctx.saveGState()
+            ctx.addPath(path)
+            ctx.clip()
+            let scale = max(rect.width / CGFloat(cover.width), rect.height / CGFloat(cover.height))
+            let drawW = CGFloat(cover.width) * scale
+            let drawH = CGFloat(cover.height) * scale
+            ctx.draw(cover, in: CGRect(x: rect.midX - drawW / 2, y: rect.midY - drawH / 2, width: drawW, height: drawH))
+            ctx.restoreGState()
 
-        // Liseré « verre »
-        ctx.addPath(path)
-        ctx.setStrokeColor(CGColor(srgbRed: 1, green: 1, blue: 1, alpha: 0.22))
-        ctx.setLineWidth(max(1, side * 0.0025))
-        ctx.strokePath()
+            // Liseré « verre »
+            ctx.addPath(path)
+            ctx.setStrokeColor(CGColor(srgbRed: 1, green: 1, blue: 1, alpha: 0.22))
+            ctx.setLineWidth(max(1, side * 0.0025))
+            ctx.strokePath()
+        }
 
         guard let image = ctx.makeImage() else { return nil }
 
