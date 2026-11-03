@@ -258,9 +258,7 @@ private struct CompactPlayer: View {
 
                 HStack {
                     Spacer()
-                    Image(systemName: "waveform")
-                        .font(.system(size: 8.5 * s, weight: .bold))
-                        .foregroundStyle(.white.opacity(spotify.isPlaying ? 0.75 : 0.3))
+                    EqualizerIcon(isPlaying: spotify.isPlaying, height: 9 * s)
                 }
             }
 

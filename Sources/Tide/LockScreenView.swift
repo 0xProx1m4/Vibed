@@ -202,9 +202,7 @@ struct PlayerCard: View {
                 }
                 .lineLimit(1)
                 .frame(maxWidth: .infinity)
-                Image(systemName: "waveform")
-                    .font(.system(size: 11 * s, weight: .semibold))
-                    .foregroundStyle(.white.opacity(spotify.isPlaying ? 0.8 : 0.3))
+                EqualizerIcon(isPlaying: spotify.isPlaying, height: 11 * s)
             }
 
             // Progression
