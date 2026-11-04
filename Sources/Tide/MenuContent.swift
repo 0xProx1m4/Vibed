@@ -31,10 +31,9 @@ struct MenuContent: View {
 
             Divider()
 
-            Button("Quitter Tide") { NSApp.terminate(nil) }
-                .buttonStyle(.plain)
-                .font(.system(size: 12))
-                .foregroundStyle(.secondary)
+            QuitButton()
+                .padding(.horizontal, -8) // la surbrillance déborde un peu, comme un menu macOS
+                .padding(.top, -6)
         }
         .padding(16)
         .frame(width: 300)
@@ -197,5 +196,78 @@ struct MenuContent: View {
                 .buttonStyle(PressableStyle(highlight: .circle))
             }
         }
+    }
+}
+
+/// Bouton « Quitter Tide » qui se sent sous le doigt : ligne de menu à la macOS qui
+/// s'allume au survol, s'enfonce au clic avec un retour haptique du trackpad, puis
+/// ferme l'app une fois l'animation jouée. Raccourci ⌘Q.
+private struct QuitButton: View {
+    var body: some View {
+        Button {
+            NSHapticFeedbackManager.defaultPerformer.perform(.levelChange, performanceTime: .now)
+            // Laisse le temps de voir le bouton s'enfoncer avant de fermer.
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.18) { NSApp.terminate(nil) }
+        } label: {
+            HStack(spacing: 8) {
+                Image(systemName: "power")
+                    .font(.system(size: 12, weight: .semibold))
+                    .frame(width: 16)
+                Text("Quitter Tide")
+                    .font(.system(size: 13))
+                Spacer(minLength: 0)
+                Text("⌘Q")
+                    .font(.system(size: 12))
+                    .foregroundStyle(.tertiary)
+            }
+            .padding(.horizontal, 8)
+            .frame(height: 30)
+            .contentShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+        }
+        .buttonStyle(QuitButtonStyle())
+        .keyboardShortcut("q", modifiers: .command)
+    }
+}
+
+private struct QuitButtonStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        QuitButtonBody(configuration: configuration)
+    }
+}
+
+private struct QuitButtonBody: View {
+    let configuration: ButtonStyleConfiguration
+    // `State` sans `@` : voir `PressableBody` (pas de macro avec les Command Line Tools).
+    private let hoverState = State(initialValue: false)
+    private var isHovered: Bool {
+        get { hoverState.wrappedValue }
+        nonmutating set { hoverState.wrappedValue = newValue }
+    }
+
+    private var pressed: Bool { configuration.isPressed }
+    private var active: Bool { isHovered || pressed }
+
+    var body: some View {
+        let shape = RoundedRectangle(cornerRadius: 8, style: .continuous)
+        configuration.label
+            .foregroundStyle(active ? Color.white : Color.secondary)
+            .background {
+                shape
+                    .fill(Color.red.opacity(pressed ? 0.95 : 0.8))
+                    .overlay(shape.strokeBorder(.white.opacity(0.18), lineWidth: 0.5))
+                    .shadow(color: .red.opacity(pressed ? 0.15 : 0.35), radius: pressed ? 2 : 6, y: pressed ? 0 : 2)
+                    .opacity(active ? 1 : 0)
+                    .scaleEffect(active ? 1 : 0.96)
+            }
+            .scaleEffect(pressed ? 0.96 : 1)
+            .onHover { hovering in
+                isHovered = hovering
+                // Petit « clic » du trackpad en entrant sur le bouton, comme un aimant.
+                if hovering {
+                    NSHapticFeedbackManager.defaultPerformer.perform(.alignment, performanceTime: .now)
+                }
+            }
+            .animation(.easeOut(duration: 0.14), value: isHovered)
+            .animation(.spring(response: 0.22, dampingFraction: 0.55), value: pressed)
     }
 }
