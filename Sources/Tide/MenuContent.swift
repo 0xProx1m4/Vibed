@@ -199,13 +199,12 @@ struct MenuContent: View {
     }
 }
 
-/// Bouton « Quitter Tide » qui se sent sous le doigt : ligne de menu à la macOS qui
-/// s'allume au survol, s'enfonce au clic avec un retour haptique du trackpad, puis
-/// ferme l'app une fois l'animation jouée. Raccourci ⌘Q.
+/// Bouton « Quitter Tide » : ligne de menu à la macOS, avec une surbrillance discrète au
+/// survol, qui s'enfonce légèrement au clic, puis ferme l'app une fois l'animation jouée.
+/// Raccourci ⌘Q.
 private struct QuitButton: View {
     var body: some View {
         Button {
-            NSHapticFeedbackManager.defaultPerformer.perform(.levelChange, performanceTime: .now)
             // Laisse le temps de voir le bouton s'enfoncer avant de fermer.
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.18) { NSApp.terminate(nil) }
         } label: {
@@ -250,24 +249,15 @@ private struct QuitButtonBody: View {
     var body: some View {
         let shape = RoundedRectangle(cornerRadius: 8, style: .continuous)
         configuration.label
-            .foregroundStyle(active ? Color.white : Color.secondary)
+            .foregroundStyle(active ? Color.primary : Color.secondary)
             .background {
                 shape
-                    .fill(Color.red.opacity(pressed ? 0.95 : 0.8))
-                    .overlay(shape.strokeBorder(.white.opacity(0.18), lineWidth: 0.5))
-                    .shadow(color: .red.opacity(pressed ? 0.15 : 0.35), radius: pressed ? 2 : 6, y: pressed ? 0 : 2)
+                    .fill(Color.primary.opacity(pressed ? 0.14 : 0.08))
                     .opacity(active ? 1 : 0)
-                    .scaleEffect(active ? 1 : 0.96)
             }
-            .scaleEffect(pressed ? 0.96 : 1)
-            .onHover { hovering in
-                isHovered = hovering
-                // Petit « clic » du trackpad en entrant sur le bouton, comme un aimant.
-                if hovering {
-                    NSHapticFeedbackManager.defaultPerformer.perform(.alignment, performanceTime: .now)
-                }
-            }
+            .scaleEffect(pressed ? 0.97 : 1)
+            .onHover { isHovered = $0 }
             .animation(.easeOut(duration: 0.14), value: isHovered)
-            .animation(.spring(response: 0.22, dampingFraction: 0.55), value: pressed)
+            .animation(.spring(response: 0.25, dampingFraction: 0.75), value: pressed)
     }
 }
