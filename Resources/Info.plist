@@ -23,6 +23,6 @@
     <key>NSHighResolutionCapable</key>
     <true/>
     <key>NSAppleEventsUsageDescription</key>
-    <string>Tide contrôle Spotify pour afficher le morceau en cours sur l'écran de verrouillage.</string>
+    <string>Tide controls Spotify to show the current track on the lock screen.</string>
 </dict>
 </plist>

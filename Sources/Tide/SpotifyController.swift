@@ -10,12 +10,12 @@ struct Track: Equatable {
     let duration: TimeInterval
 }
 
-/// Lit l'état de Spotify et le pilote.
+/// Reads Spotify's state and controls it.
 ///
-/// Deux sources d'information :
-/// 1. la notification que Spotify diffuse à chaque changement (aucune autorisation requise) ;
-/// 2. AppleScript, interrogé chaque seconde (position exacte + commandes), qui nécessite
-///    l'autorisation « Automatisation › Spotify ».
+/// Two sources of information:
+/// 1. the notification Spotify broadcasts on every change (no permission required);
+/// 2. AppleScript, polled every second (exact position + commands), which requires
+///    the "Automation › Spotify" permission.
 @MainActor
 final class SpotifyController: ObservableObject {
     static let shared = SpotifyController()
@@ -30,17 +30,17 @@ final class SpotifyController: ObservableObject {
     @Published private(set) var artwork: NSImage?
     @Published private(set) var access: Access = .unknown
     @Published private(set) var lastError: String?
-    /// Position pendant que l'utilisateur fait glisser la barre de progression.
+    /// Position while the user drags the progress bar.
     @Published var scrubPosition: TimeInterval?
-    /// Position survolée sur la barre de progression (0…1), pour la bulle de temps.
+    /// Hovered position on the progress bar (0…1), for the time bubble.
     @Published var hoverProgress: Double?
-    /// État « liké » connu par morceau (lu via l'API web si le compte est connecté).
+    /// Known "liked" state per track (read via the Web API when the account is connected).
     @Published private var likedCache: [String: Bool] = [:]
 
     var isCurrentTrackLiked: Bool { track.flatMap { likedCache[$0.id] } ?? false }
 
-    /// Sans compte connecté, le ♥ envoie le raccourci « J'aime » de Spotify (⌥⇧B),
-    /// ce qui demande l'autorisation macOS d'envoyer des touches (Accessibilité).
+    /// Without a connected account, the ♥ sends Spotify's "Like" shortcut (⌥⇧B),
+    /// which requires the macOS permission to send keystrokes (Accessibility).
     var canLike: Bool { SpotifyWebAPI.shared.isConnected || CGPreflightPostEventAccess() }
 
     private var position: TimeInterval = 0
@@ -73,7 +73,7 @@ final class SpotifyController: ObservableObject {
     end timeout
     """
 
-    // MARK: - Cycle de vie
+    // MARK: - Lifecycle
 
     func start() {
         guard timer == nil else { return }
@@ -95,20 +95,20 @@ final class SpotifyController: ObservableObject {
         poll()
     }
 
-    /// Position interpolée (fluide entre deux lectures).
+    /// Interpolated position (smooth between two polls).
     func position(at date: Date) -> TimeInterval {
         guard let track else { return 0 }
         let p = isPlaying ? position + date.timeIntervalSince(positionDate) : position
         return min(max(p, 0), track.duration)
     }
 
-    // MARK: - Commandes
+    // MARK: - Commands
 
     func requestLikePermission() {
         _ = CGRequestPostEventAccess()
     }
 
-    /// Demande à Spotify (API web) si le morceau en cours est dans les Titres likés.
+    /// Asks Spotify (Web API) whether the current track is in Liked Songs.
     func refreshLikedState() {
         guard let track, Self.isLikeable(track.id), SpotifyWebAPI.shared.isConnected else { return }
         let id = track.id
@@ -118,16 +118,16 @@ final class SpotifyController: ObservableObject {
         }
     }
 
-    /// Ajoute / retire le morceau des Titres likés.
-    /// - Compte Spotify connecté : via l'API web (fiable, et l'état réel est connu).
-    /// - Sinon : raccourci Spotify ⌥⇧B envoyé directement à l'app (état inconnu).
+    /// Adds / removes the track from Liked Songs.
+    /// - Spotify account connected: via the Web API (reliable, and the real state is known).
+    /// - Otherwise: Spotify shortcut ⌥⇧B sent directly to the app (state unknown).
     func toggleLike() {
         guard let track else { return }
         let id = track.id
         let newValue = !(likedCache[id] ?? false)
 
         if SpotifyWebAPI.shared.isConnected, Self.isLikeable(id) {
-            likedCache[id] = newValue // affichage immédiat
+            likedCache[id] = newValue // update the UI immediately
             Task { [weak self] in
                 let ok = await SpotifyWebAPI.shared.setSaved(newValue, uri: id)
                 if !ok { self?.likedCache[id] = !newValue }
@@ -169,7 +169,7 @@ final class SpotifyController: ObservableObject {
         send("set player position to \(String(format: "%.2f", time))")
     }
 
-    /// Redemande l'autorisation à macOS (affiche la fenêtre « Tide souhaite contrôler Spotify »).
+    /// Asks macOS for permission again (shows the "Tide wants to control Spotify" prompt).
     func requestAccess() {
         accessCheckInFlight = false
         access = .unknown
@@ -182,13 +182,13 @@ final class SpotifyController: ObservableObject {
         }
     }
 
-    // MARK: - Autorisation
+    // MARK: - Permission
 
     private func checkAccess(prompt: Bool) {
         guard !accessCheckInFlight else { return }
         accessCheckInFlight = true
-        // AEDeterminePermissionToAutomateTarget bloque tant que la fenêtre est affichée :
-        // jamais sur le thread principal.
+        // AEDeterminePermissionToAutomateTarget blocks while the prompt is shown:
+        // never on the main thread.
         let bundleID = Self.bundleID
         DispatchQueue.global(qos: .userInitiated).async { [weak self] in
             let target = NSAppleEventDescriptor(bundleIdentifier: bundleID)
@@ -208,13 +208,13 @@ final class SpotifyController: ObservableObject {
                 case OSStatus(errAEEventWouldRequireUserConsent):
                     self.access = .unknown
                 default:
-                    break // Spotify pas encore lancé, etc. On réessaiera.
+                    break // Spotify not launched yet, etc. We'll retry.
                 }
             }
         }
     }
 
-    // MARK: - Interne
+    // MARK: - Internal
 
     private func freezePosition() {
         position = position(at: Date())
@@ -238,7 +238,7 @@ final class SpotifyController: ObservableObject {
         guard running else { clear(); return }
 
         guard access == .granted else {
-            // Premier passage : on demande l'autorisation (une seule fenêtre système).
+            // First pass: ask for permission (a single system prompt).
             if access == .unknown { checkAccess(prompt: true) }
             return
         }
@@ -263,7 +263,7 @@ final class SpotifyController: ObservableObject {
         )
     }
 
-    /// Données envoyées par Spotify à chaque changement — fonctionne même sans autorisation.
+    /// Data sent by Spotify on every change — works even without permission.
     private func applyNotification(_ info: [AnyHashable: Any]) {
         let state = (info["Player State"] as? String ?? "").lowercased()
         if state == "stopped" { clear(); return }
@@ -302,7 +302,7 @@ final class SpotifyController: ObservableObject {
         artworkTask?.cancel()
     }
 
-    // MARK: - Pochette
+    // MARK: - Artwork
 
     private func loadArtworkIfNeeded(trackID: String, url: URL?) {
         guard trackID != artworkTrackID else { return }
@@ -316,7 +316,7 @@ final class SpotifyController: ObservableObject {
             if imageURL == nil { imageURL = await Self.oEmbedThumbnail(for: trackID) }
             guard let imageURL else { return }
 
-            // Version haute définition (2000 px) si Spotify l'a, sinon l'image normale (640 px).
+            // High-resolution version (2000 px) if Spotify has it, otherwise the regular image (640 px).
             var image: NSImage?
             if let hiRes = Self.highResolutionURL(for: imageURL) {
                 image = await Self.downloadImage(hiRes)
@@ -329,8 +329,8 @@ final class SpotifyController: ObservableObject {
         }
     }
 
-    /// Les URL de pochette Spotify encodent la taille : …ab67616d0000b273… = 640 px,
-    /// …ab67616d000082c1… = taille d'origine (souvent 2000 px).
+    /// Spotify artwork URLs encode the size: …ab67616d0000b273… = 640 px,
+    /// …ab67616d000082c1… = original size (often 2000 px).
     nonisolated private static func highResolutionURL(for url: URL) -> URL? {
         let string = url.absoluteString
         guard let range = string.range(of: "ab67616d0000[0-9a-fA-F]{4}", options: .regularExpression) else { return nil }
@@ -344,7 +344,7 @@ final class SpotifyController: ObservableObject {
         return NSImage(data: data)
     }
 
-    /// Pochette via l'API publique oEmbed de Spotify (sans compte ni clé).
+    /// Artwork via Spotify's public oEmbed API (no account or key needed).
     nonisolated private static func oEmbedThumbnail(for trackID: String) async -> URL? {
         // "spotify:track:abc" → https://open.spotify.com/track/abc
         let parts = trackID.split(separator: ":")
@@ -362,14 +362,14 @@ final class SpotifyController: ObservableObject {
 
     // MARK: - AppleScript
 
-    /// AppleScript (NSAppleScript) doit être utilisé sur le thread principal.
+    /// AppleScript (NSAppleScript) must be used on the main thread.
     private func execute(_ source: String) -> NSAppleEventDescriptor? {
         var error: NSDictionary?
         let result = NSAppleScript(source: source)?.executeAndReturnError(&error)
         if let error {
             let code = error[NSAppleScript.errorNumber] as? Int ?? 0
-            let message = error[NSAppleScript.errorMessage] as? String ?? "erreur inconnue"
-            NSLog("Tide – erreur AppleScript %d : %@", code, message)
+            let message = error[NSAppleScript.errorMessage] as? String ?? "unknown error"
+            NSLog("Tide – AppleScript error %d: %@", code, message)
             if code == -1743 { access = .denied }
             lastError = "\(message) (\(code))"
         }

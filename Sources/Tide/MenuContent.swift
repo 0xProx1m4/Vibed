@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// Petit panneau de la barre des menus.
+/// Small menu bar panel.
 struct MenuContent: View {
     @ObservedObject private var spotify = SpotifyController.shared
     @ObservedObject private var webAPI = SpotifyWebAPI.shared
@@ -20,17 +20,17 @@ struct MenuContent: View {
             accessBanner
 
             VStack(alignment: .leading, spacing: 10) {
-                sectionTitle("Écran de verrouillage macOS")
-                Toggle("Pochette sur l'écran verrouillé", isOn: $wallpaperMode)
-                Toggle("Barre Liquid Glass sur l'écran verrouillé", isOn: $lockScreenBar)
+                sectionTitle("macOS Lock Screen")
+                Toggle("Artwork on the lock screen", isOn: $wallpaperMode)
+                Toggle("Liquid Glass bar on the lock screen", isOn: $lockScreenBar)
                 if wallpaperMode {
-                    Text("Ton fond d'écran n'est jamais modifié pendant que tu utilises le Mac. Verrouille avec ⌃⌘Q pour voir le résultat.")
+                    Text("Your wallpaper is never changed while you use your Mac. Lock with ⌃⌘Q to see the result.")
                         .font(.system(size: 11))
                         .foregroundStyle(.secondary)
                         .fixedSize(horizontal: false, vertical: true)
-                    labeledSlider("Taille", value: $coverSize, range: 0.25...0.45)
+                    labeledSlider("Size", value: $coverSize, range: 0.25...0.45)
                     labeledSlider("Position", value: $coverCenter, range: 0.36...0.52)
-                    labeledSlider("Flou", value: $backgroundBlur, range: 0...1)
+                    labeledSlider("Blur", value: $backgroundBlur, range: 0...1)
                 }
             }
             .font(.system(size: 12))
@@ -41,14 +41,14 @@ struct MenuContent: View {
 
             Divider()
 
-            sectionTitle("Écran Tide")
+            sectionTitle("Tide Screen")
 
             Button {
                 LockScreenManager.shared.lock()
             } label: {
                 HStack {
                     Image(systemName: "lock.fill")
-                    Text("Verrouiller maintenant")
+                    Text("Lock Now")
                     Spacer()
                     Text("⌃⌥⌘L").foregroundStyle(.secondary)
                 }
@@ -61,21 +61,21 @@ struct MenuContent: View {
             .buttonStyle(PressableStyle())
 
             VStack(alignment: .leading, spacing: 10) {
-                Picker("Verrouillage auto", selection: $autoLockMinutes) {
-                    Text("Jamais").tag(0)
+                Picker("Auto-lock", selection: $autoLockMinutes) {
+                    Text("Never").tag(0)
                     Text("1 min").tag(1)
                     Text("2 min").tag(2)
                     Text("5 min").tag(5)
                     Text("10 min").tag(10)
                     Text("15 min").tag(15)
                 }
-                Toggle("Verrouiller quand l'écran s'éteint", isOn: $lockOnScreenSleep)
+                Toggle("Lock when the display turns off", isOn: $lockOnScreenSleep)
             }
             .font(.system(size: 12))
 
             Divider()
 
-            Button("Quitter Tide") { NSApp.terminate(nil) }
+            Button("Quit Tide") { NSApp.terminate(nil) }
                 .buttonStyle(.plain)
                 .font(.system(size: 12))
                 .foregroundStyle(.secondary)
@@ -87,17 +87,17 @@ struct MenuContent: View {
     @ViewBuilder
     private var spotifyAccount: some View {
         VStack(alignment: .leading, spacing: 8) {
-            sectionTitle("Compte Spotify (bouton ♥)")
+            sectionTitle("Spotify Account (♥ button)")
             if webAPI.isConnected {
                 HStack {
-                    Label("Connecté", systemImage: "checkmark.circle.fill")
+                    Label("Connected", systemImage: "checkmark.circle.fill")
                         .foregroundStyle(.green)
                     Spacer()
-                    Button("Se déconnecter") { webAPI.disconnect() }
+                    Button("Disconnect") { webAPI.disconnect() }
                 }
                 .font(.system(size: 12))
             } else {
-                Text("Pour que le ♥ soit rempli quand un morceau est déjà liké :\n1. developer.spotify.com/dashboard → Create app\n2. Redirect URI : \(SpotifyWebAPI.redirectURI)\n3. Coche « Web API », enregistre, copie le Client ID ici :")
+                Text("To have the ♥ filled when a track is already liked:\n1. developer.spotify.com/dashboard → Create app\n2. Redirect URI: \(SpotifyWebAPI.redirectURI)\n3. Check \"Web API\", save, and paste the Client ID here:")
                     .font(.system(size: 11))
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
@@ -106,17 +106,17 @@ struct MenuContent: View {
                     .textFieldStyle(.roundedBorder)
                     .font(.system(size: 11, design: .monospaced))
                 HStack {
-                    Button(webAPI.isConnecting ? "Connexion…" : "Se connecter à Spotify") { webAPI.connect() }
+                    Button(webAPI.isConnecting ? "Connecting…" : "Connect to Spotify") { webAPI.connect() }
                         .disabled(clientID.trimmingCharacters(in: .whitespaces).isEmpty)
                     Spacer()
-                    Button("Ouvrir le dashboard") {
+                    Button("Open the dashboard") {
                         NSWorkspace.shared.open(URL(string: "https://developer.spotify.com/dashboard")!)
                     }
                     .buttonStyle(.link)
                 }
                 .font(.system(size: 12))
                 if !spotify.canLike {
-                    Button("Ou : ♥ sans compte (autorisation Accessibilité)") {
+                    Button("Or: ♥ without an account (Accessibility permission)") {
                         spotify.requestLikePermission()
                     }
                     .buttonStyle(.link)
@@ -152,28 +152,28 @@ struct MenuContent: View {
             VStack(alignment: .leading, spacing: 8) {
                 Label(
                     spotify.access == .denied
-                        ? "Tide n'a pas le droit de contrôler Spotify."
-                        : "Tide a besoin d'accéder à Spotify.",
+                        ? "Tide isn't allowed to control Spotify."
+                        : "Tide needs access to Spotify.",
                     systemImage: "exclamationmark.triangle.fill"
                 )
                 .font(.system(size: 12, weight: .semibold))
                 .foregroundStyle(.orange)
 
                 if spotify.access == .denied {
-                    Text("Réglages Système › Confidentialité et sécurité › Automatisation › Tide → coche Spotify.")
+                    Text("System Settings › Privacy & Security › Automation › Tide → check Spotify.")
                         .font(.system(size: 11))
                         .foregroundStyle(.secondary)
                         .fixedSize(horizontal: false, vertical: true)
-                    Button("Ouvrir les réglages") { spotify.openAutomationSettings() }
+                    Button("Open Settings") { spotify.openAutomationSettings() }
                 } else {
-                    Button("Autoriser l'accès à Spotify") { spotify.requestAccess() }
+                    Button("Allow Access to Spotify") { spotify.requestAccess() }
                 }
             }
             .padding(10)
             .frame(maxWidth: .infinity, alignment: .leading)
             .liquidGlass(cornerRadius: 10)
         } else if let error = spotify.lastError, spotify.track == nil {
-            Text("Spotify : \(error)")
+            Text("Spotify: \(error)")
                 .font(.system(size: 11))
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
@@ -197,7 +197,7 @@ struct MenuContent: View {
             .clipShape(RoundedRectangle(cornerRadius: 9, style: .continuous))
 
             VStack(alignment: .leading, spacing: 2) {
-                Text(spotify.track?.title ?? (spotify.isRunning ? "Rien en lecture" : "Spotify n'est pas ouvert"))
+                Text(spotify.track?.title ?? (spotify.isRunning ? "Nothing Playing" : "Spotify isn't open"))
                     .font(.system(size: 13, weight: .semibold))
                 Text(spotify.track?.artist ?? "Tide")
                     .font(.system(size: 12))

@@ -1,7 +1,7 @@
 import Carbon.HIToolbox
 import Foundation
 
-/// Raccourci clavier global (API Carbon, pas besoin de permission d'accessibilité).
+/// Global keyboard shortcut (Carbon API, no Accessibility permission needed).
 final class HotKey {
     private var hotKeyRef: EventHotKeyRef?
     private var handlerRef: EventHandlerRef?

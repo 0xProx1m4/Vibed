@@ -6,7 +6,7 @@ struct AudioOutput: Identifiable, Equatable {
     let name: String
     let transport: UInt32
 
-    /// Icône comme celle du lecteur macOS (ordinateur, casque, AirPlay…).
+    /// Icon matching the macOS player (computer, headphones, AirPlay…).
     var symbol: String {
         switch transport {
         case kAudioDeviceTransportTypeBuiltIn: return "laptopcomputer"
@@ -18,14 +18,14 @@ struct AudioOutput: Identifiable, Equatable {
     }
 }
 
-/// Liste des sorties audio du Mac et choix de la sortie par défaut (CoreAudio).
+/// Lists the Mac's audio outputs and selects the default output (CoreAudio).
 @MainActor
 final class AudioOutputs: ObservableObject {
     static let shared = AudioOutputs()
 
     @Published private(set) var devices: [AudioOutput] = []
     @Published private(set) var currentID: AudioDeviceID = 0
-    /// Liste affichée à la place des commandes dans la barre.
+    /// List shown in place of the controls in the bar.
     @Published var isPickerVisible = false
 
     var current: AudioOutput? { devices.first { $0.id == currentID } }

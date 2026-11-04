@@ -1,128 +1,129 @@
 # Tide 🌊
 
-Affiche ce que tu écoutes sur **Spotify** sur le **vrai écran de verrouillage de macOS** :
-la pochette agrandie et floutée en fond, la pochette nette au centre, et par‑dessus
-l'horloge et le lecteur Liquid Glass natifs de macOS.
+Shows what you're listening to on **Spotify** on the **real macOS lock screen**:
+the artwork enlarged and blurred as the background, the sharp artwork in the center, and on top
+of it the native macOS clock and Liquid Glass player.
 
-### Comment ça marche
+### How it works
 
-macOS ne laisse aucune app dessiner directement sur l'écran de verrouillage. Mais depuis
-Sonoma, cet écran utilise **le fond d'écran du bureau**, et macOS y affiche lui‑même
-l'horloge et le lecteur « En lecture » (cœur, ⏮ ⏸ ⏭, AirPlay) pour Spotify.
+macOS doesn't let any app draw directly on the lock screen. But since Sonoma, that screen
+uses **the desktop wallpaper**, and macOS itself displays the clock and the "Now Playing"
+player (heart, ⏮ ⏸ ⏭, AirPlay) for Spotify on it.
 
-Tide prépare donc, à chaque morceau, une image (pochette floutée + pochette au centre) et
-**ne l'applique qu'au moment où tu verrouilles le Mac**. Dès que tu déverrouilles, ton fond
-d'écran d'origine revient exactement comme avant (y compris les fonds aériens/dynamiques) :
-sur ton bureau, rien ne change. Le lecteur natif de macOS sur l'écran verrouillé permet de
-mettre en pause, passer au morceau suivant et voir la barre de durée.
+So for each track, Tide prepares an image (blurred artwork + artwork in the center) and
+**only applies it the moment you lock your Mac**. As soon as you unlock, your original
+wallpaper comes back exactly as before (including aerial/dynamic wallpapers):
+nothing changes on your desktop. The native macOS player on the lock screen lets you
+pause, skip to the next track and see the progress bar.
 
-Tide propose en plus son propre écran de verrouillage (`⌃⌥⌘L`), entièrement personnalisé.
+Tide also offers its own fully custom lock screen (`⌃⌥⌘L`).
 
 ## Installation
 
-Il faut un Mac avec Xcode (ou les Command Line Tools) installé.
+You need a Mac with Xcode (or the Command Line Tools) installed.
 
 ```bash
-git clone <ce-repo> && cd Vibed
+git clone <this-repo> && cd Vibed
 ./build.sh
 open build/Tide.app
 ```
 
-Au premier lancement, macOS demande l'autorisation de contrôler **Spotify** : accepte.
-(Si tu as refusé : Réglages Système → Confidentialité et sécurité → Automatisation → Tide → Spotify.)
+On first launch, macOS asks for permission to control **Spotify**: accept.
+(If you declined: System Settings → Privacy & Security → Automation → Tide → Spotify.)
 
-### Barre Liquid Glass sur l'écran verrouillé
+### Liquid Glass bar on the lock screen
 
-Tide affiche aussi sa propre barre de lecture (titre, barre de durée déplaçable, ⏮ ⏯ ⏭) sous
-la pochette, directement sur le vrai écran verrouillé. macOS ne prévoit aucune API officielle
-pour ça : Tide passe par une fonction privée du serveur de fenêtres (SkyLight), la même
-technique que d'autres apps de la barre des menus. Si une mise à jour de macOS la casse, la
-barre ne s'affiche simplement plus (le reste continue de marcher) : désactive‑la dans le menu.
+Tide also shows its own playback bar (title, draggable progress bar, ⏮ ⏯ ⏭) below
+the artwork, directly on the real lock screen. macOS provides no official API
+for this: Tide uses a private window server function (SkyLight), the same
+technique used by other menu bar apps. If a macOS update breaks it, the
+bar simply stops showing (everything else keeps working): disable it from the menu.
 
-Boutons de la barre : **♥**, **⏮ ⏯ ⏭**, et **💻 sortie audio** (haut‑parleurs du Mac, casque
-Bluetooth, AirPlay…).
+Bar buttons: **♥**, **⏮ ⏯ ⏭**, and **💻 audio output** (Mac speakers, Bluetooth
+headphones, AirPlay…).
 
-#### Le ♥ (Titres likés)
+#### The ♥ (Liked Songs)
 
-Pour que le cœur soit **rempli quand le morceau est déjà liké**, Tide doit lire ta bibliothèque
-via l'API web de Spotify (c'est la seule source de cette info). Une seule fois :
+For the heart to be **filled when the track is already liked**, Tide needs to read your library
+through the Spotify Web API (it's the only source of that information). One time only:
 
-1. Va sur [developer.spotify.com/dashboard](https://developer.spotify.com/dashboard) → **Create app**.
-2. Redirect URI : `http://127.0.0.1:43821/callback` — coche **Web API** — enregistre.
-3. Copie le **Client ID** dans le menu 🌊 › Compte Spotify, puis **Se connecter à Spotify**.
+1. Go to [developer.spotify.com/dashboard](https://developer.spotify.com/dashboard) → **Create app**.
+2. Redirect URI: `http://127.0.0.1:43821/callback` — check **Web API** — save.
+3. Copy the **Client ID** into the 🌊 menu › Spotify account, then **Connect to Spotify**.
 
-Connexion OAuth « PKCE » : aucun mot de passe ni secret n'est stocké ; seul un jeton de
-renouvellement est gardé dans `~/Library/Application Support/Tide/spotify-token` (lisible par
-toi seul). Sans compte connecté, le ♥ envoie le raccourci Spotify ⌥⇧B (autorisation
-Accessibilité), mais Tide ne peut alors pas savoir si un morceau est déjà liké.
+OAuth "PKCE" login: no password or secret is stored; only a refresh token
+is kept in `~/Library/Application Support/Tide/spotify-token` (readable by
+you only). Without a connected account, the ♥ sends the Spotify shortcut ⌥⇧B (Accessibility
+permission), but Tide then can't know whether a track is already liked.
 
-## Réglages (icône 🌊 dans la barre des menus)
+## Settings (🌊 icon in the menu bar)
 
-- **Pochette sur l'écran verrouillé** : active ou désactive le mode écran de verrouillage macOS.
-- **Taille / Position** : ajuste la pochette pour qu'elle tombe bien entre l'horloge et le lecteur de macOS.
+- **Artwork on the lock screen**: turns the macOS lock screen mode on or off.
+- **Size / Position**: adjusts the artwork so it fits nicely between the macOS clock and player.
 
-Si le lecteur de macOS n'apparaît pas sur l'écran de verrouillage : Réglages Système ›
-Écran verrouillé, et vérifie que l'affichage des contrôles multimédia est autorisé.
+If the macOS player doesn't appear on the lock screen: System Settings ›
+Lock Screen, and check that media controls are allowed to be shown.
 
-Limites : le fond d'écran n'est changé que sur l'Espace (bureau) actif de chaque écran.
-Les fonds d'écran animés d'Apple (« aériens ») peuvent ne pas être restaurés à l'identique.
+Limitations: the wallpaper is only changed on the active Space (desktop) of each display.
+Apple's animated ("aerial") wallpapers may not be restored identically.
 
-## Écran Tide (optionnel)
+## Tide screen (optional)
 
 
 
-| Action | Comment |
+| Action | How |
 |---|---|
-| Verrouiller | `⌃⌥⌘L`, ou icône 🌊 dans la barre des menus → *Verrouiller maintenant* |
-| Lecture / pause | `Espace` ou bouton ⏯ |
-| Morceau précédent / suivant | `←` / `→` ou boutons |
-| Avancer dans le morceau | glisser sur la barre de progression |
-| Déverrouiller | clic sur le fond ou n'importe quelle autre touche → Touch ID / mot de passe du Mac |
+| Lock | `⌃⌥⌘L`, or 🌊 icon in the menu bar → *Lock now* |
+| Play / pause | `Space` or ⏯ button |
+| Previous / next track | `←` / `→` or buttons |
+| Seek within the track | drag on the progress bar |
+| Unlock | click the background or press any other key → Touch ID / Mac password |
 
-Dans le menu 🌊 : verrouillage auto après X minutes d'inactivité, et verrouillage quand l'écran s'éteint.
+In the 🌊 menu: auto-lock after X minutes of inactivity, and lock when the display turns off.
 
-## Bon à savoir
+## Good to know
 
-- **Liquid Glass** : sur macOS 26 (Tahoe), compilé avec Xcode 26, Tide utilise le vrai
-  matériau `glassEffect`. Sur les versions plus anciennes, il l'imite (flou + reflets).
-- macOS ne laisse aucune app tierce dessiner sur le *vrai* écran de verrouillage du système.
-  Tide affiche donc **son propre écran**, par‑dessus tout (Dock, barre des menus,
-  ⌘Tab et Forcer à quitter sont bloqués), et ne le retire qu'avec ton Touch ID ou ton mot de passe.
-  Ça ne remplace pas totalement le verrouillage système (ex. un redémarrage forcé le contourne) :
-  pour une sécurité maximale, garde aussi le verrouillage macOS activé.
-- Si « Verrouiller quand l'écran s'éteint » est activé et que macOS demande déjà le mot de passe
-  à la sortie de veille, tu devras t'authentifier deux fois. Dans ce cas, mets un délai dans
-  Réglages Système → Écran verrouillé, ou désactive l'option.
-- Comme l'app est signée en ad‑hoc, macOS peut redemander l'autorisation Spotify après chaque rebuild.
+- **Liquid Glass**: on macOS 26 (Tahoe), built with Xcode 26, Tide uses the real
+  `glassEffect` material. On older versions, it imitates it (blur + highlights).
+- macOS doesn't let any third-party app draw on the system's *real* lock screen.
+  So Tide shows **its own screen**, on top of everything (Dock, menu bar,
+  ⌘Tab and Force Quit are blocked), and only removes it with your Touch ID or password.
+  It doesn't fully replace the system lock (e.g. a forced restart bypasses it):
+  for maximum security, keep the macOS lock enabled as well.
+- If "Lock when the display turns off" is enabled and macOS already asks for your password
+  when waking from sleep, you'll have to authenticate twice. In that case, set a delay in
+  System Settings → Lock Screen, or disable the option.
+- Because the app is ad-hoc signed, macOS may ask for the Spotify permission again after each rebuild.
 
-## Dépannage : « Rien en lecture »
+## Troubleshooting: "Nothing playing"
 
-1. Ouvre le menu 🌊 : s'il affiche un avertissement orange, clique sur le bouton proposé.
-2. Vérifie Réglages Système › Confidentialité et sécurité › Automatisation › **Tide** › **Spotify** coché.
-3. Si rien n'apparaît ou si ça bloque après un rebuild, remets l'autorisation à zéro puis relance Tide :
+1. Open the 🌊 menu: if it shows an orange warning, click the suggested button.
+2. Check that System Settings › Privacy & Security › Automation › **Tide** › **Spotify** is checked.
+3. If nothing shows up or it gets stuck after a rebuild, reset the permission and relaunch Tide:
 
    ```bash
    tccutil reset AppleEvents app.tide.lockscreen
    ```
 
-Même sans cette autorisation, Tide affiche le morceau dès que tu changes de piste ou que tu
-fais play/pause (Spotify diffuse l'info), mais les boutons ne fonctionneront pas.
+Even without this permission, Tide shows the track as soon as you change tracks or
+play/pause (Spotify broadcasts the info), but the buttons won't work.
 
 ## Structure
 
 ```
 Sources/Tide/
-  TideApp.swift            app barre des menus, raccourci, verrouillage auto
-  WallpaperManager.swift   pochette → fond d'écran (vrai écran de verrouillage)
-  WallpaperRenderer.swift  génération de l'image de fond
-  LockScreenBar.swift      barre Liquid Glass sur le vrai écran verrouillé
-  SpotifyWebAPI.swift      connexion au compte Spotify (♥ et état liké)
-  AudioOutputs.swift       liste et choix de la sortie audio (CoreAudio)
-  SkyLight.swift           accès privé au serveur de fenêtres (au-dessus du verrouillage)
-  LockScreenManager.swift  fenêtres plein écran + Touch ID
-  LockScreenView.swift     l'écran : fond, horloge, pochette, lecteur
-  SpotifyController.swift  lecture/pilotage de Spotify via AppleScript
-  Glass.swift              effet Liquid Glass (natif macOS 26 + imitation)
-  MenuContent.swift        panneau de la barre des menus
-  HotKey.swift             raccourci global ⌃⌥⌘L
+  TideApp.swift            menu bar app, shortcut, auto-lock
+  WallpaperManager.swift   artwork → wallpaper (real lock screen)
+  WallpaperRenderer.swift  background image generation
+  LockScreenBar.swift      Liquid Glass bar on the real lock screen
+  SpotifyWebAPI.swift      Spotify account connection (♥ and liked state)
+  AudioOutputs.swift       audio output list and selection (CoreAudio)
+  SkyLight.swift           private window server access (above the lock screen)
+  LockScreenManager.swift  full-screen windows + Touch ID
+  LockScreenView.swift     the screen: background, clock, artwork, player
+  SpotifyController.swift  reading/controlling Spotify via AppleScript
+  Glass.swift              Liquid Glass effect (native macOS 26 + imitation)
+  EqualizerIcon.swift      animated now-playing indicator
+  MenuContent.swift        menu bar panel
+  HotKey.swift             global ⌃⌥⌘L shortcut
 ```

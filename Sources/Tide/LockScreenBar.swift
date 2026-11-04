@@ -1,7 +1,7 @@
 import AppKit
 import SwiftUI
 
-/// Panneau configuré comme celui de boring.notch pour pouvoir vivre au-dessus du verrouillage.
+/// Panel configured like boring.notch's so it can live above the lock screen.
 private final class LockBarPanel: NSPanel {
     override init(contentRect: NSRect, styleMask: NSWindow.StyleMask,
                   backing: NSWindow.BackingStoreType, defer flag: Bool) {
@@ -17,7 +17,7 @@ private final class LockBarPanel: NSPanel {
         isReleasedWhenClosed = false
         hidesOnDeactivate = false
         canBecomeVisibleWithoutLogin = true
-        acceptsMouseMovedEvents = true // survol de la barre de progression
+        acceptsMouseMovedEvents = true // hovering over the progress bar
         appearance = NSAppearance(named: .darkAqua)
         collectionBehavior = [.fullScreenAuxiliary, .stationary, .canJoinAllSpaces, .ignoresCycle]
     }
@@ -26,13 +26,13 @@ private final class LockBarPanel: NSPanel {
     override var canBecomeMain: Bool { false }
 }
 
-/// Vue hébergée qui réagit dès le premier clic.
+/// Hosting view that responds to the very first click.
 private final class FirstClickHostingView<Content: View>: NSHostingView<Content> {
     override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
 }
 
-/// Barre Liquid Glass (titre, durée, ⏮ ⏯ ⏭) affichée sur le VRAI écran de verrouillage,
-/// juste sous la pochette dessinée dans le fond d'écran.
+/// Liquid Glass bar (title, progress, ⏮ ⏯ ⏭) shown on the REAL lock screen,
+/// just below the artwork drawn into the wallpaper.
 @MainActor
 final class LockScreenBar {
     static let shared = LockScreenBar()
@@ -75,7 +75,7 @@ final class LockScreenBar {
         isLocked = false
         AudioOutputs.shared.isPickerVisible = false
         SpotifyController.shared.hoverProgress = nil
-        // Petit délai pour éviter un clignotement pendant l'animation de déverrouillage.
+        // Short delay to avoid flickering during the unlock animation.
         unlockTask?.cancel()
         unlockTask = Task { @MainActor [weak self] in
             try? await Task.sleep(nanoseconds: 150_000_000)
@@ -97,7 +97,7 @@ final class LockScreenBar {
         )
     }
 
-    /// Place la barre à cheval sur le bas de la carte pochette (mêmes réglages Taille/Position).
+    /// Positions the bar relative to the artwork card (same Size/Position settings).
     private func layout(_ panel: LockBarPanel, on screen: NSScreen) {
         let defaults = UserDefaults.standard
         let frame = screen.frame
@@ -106,14 +106,14 @@ final class LockScreenBar {
             coverCenter: defaults.double(forKey: Prefs.coverCenter)
         ).cardRect(screenWidth: frame.width, screenHeight: frame.height)
 
-        // ~74 % de la largeur de la pochette, ratio ~0,55, sous la pochette
-        // avec un petit espace : elle ne la recouvre jamais.
+        // ~74% of the artwork width, ~0.55 aspect ratio, below the artwork
+        // with a small gap: it never overlaps it.
         let barWidth = max(card.width * 0.74, 220)
         let s = barWidth / 250
         let barHeight = barWidth * 0.55
-        let barTop = card.maxY + frame.height * 0.016 // depuis le haut
+        let barTop = card.maxY + frame.height * 0.016 // from the top
 
-        let margin: CGFloat = 30 // place pour l'ombre
+        let margin: CGFloat = 30 // room for the shadow
         let size = CGSize(width: barWidth + margin * 2, height: barHeight + margin * 2)
         let origin = CGPoint(
             x: frame.midX - size.width / 2,
@@ -130,7 +130,7 @@ final class LockScreenBar {
     }
 }
 
-/// Contenu de la barre, uniquement si un morceau est chargé.
+/// Bar content, only when a track is loaded.
 private struct LockBarContent: View {
     @ObservedObject private var spotify = SpotifyController.shared
     @ObservedObject private var outputs = AudioOutputs.shared
@@ -161,7 +161,7 @@ private struct LockBarContent: View {
     }
 }
 
-/// Petite bulle de temps au survol de la barre de progression, façon Apple.
+/// Small time bubble when hovering the progress bar, Apple-style.
 private struct TimeBubble: View {
     let text: String
     let s: CGFloat
@@ -179,7 +179,7 @@ private struct TimeBubble: View {
     }
 }
 
-/// Choix de la sortie audio, affiché à la place des commandes.
+/// Audio output picker, shown in place of the controls.
 private struct OutputPicker: View {
     @ObservedObject private var outputs = AudioOutputs.shared
     let s: CGFloat
@@ -194,7 +194,7 @@ private struct OutputPicker: View {
                         .contentShape(Rectangle())
                 }
                 .buttonStyle(PressableStyle())
-                Text("Sortie audio")
+                Text("Audio Output")
                     .font(.system(size: 11 * s, weight: .semibold))
                 Spacer()
             }
@@ -234,7 +234,7 @@ private struct OutputPicker: View {
     }
 }
 
-/// Lecteur compact : titre/artiste, progression avec temps, puis ⏮ ⏯ ⏭.
+/// Compact player: title/artist, progress with times, then ⏮ ⏯ ⏭.
 private struct CompactPlayer: View {
     @ObservedObject private var spotify = SpotifyController.shared
     @ObservedObject private var outputs = AudioOutputs.shared
@@ -245,7 +245,7 @@ private struct CompactPlayer: View {
         VStack(spacing: 0) {
             Spacer(minLength: 0)
 
-            // Titre + artiste, centrés ; petite onde à droite
+            // Title + artist, centered; small wave on the right
             ZStack {
                 VStack(spacing: 1 * s) {
                     Text(track.title)
@@ -271,7 +271,7 @@ private struct CompactPlayer: View {
 
             Spacer(minLength: 0)
 
-            // ♥   ⏮ ⏯ ⏭   💻  — comme le lecteur de référence
+            // ♥   ⏮ ⏯ ⏭   💻  — like the reference player
             HStack(spacing: 0) {
                 button(spotify.isCurrentTrackLiked ? "heart.fill" : "heart", size: 12 * s) { spotify.toggleLike() }
                 Spacer(minLength: 0)
@@ -310,7 +310,7 @@ private struct CompactPlayer: View {
         let scrubbing = spotify.scrubPosition != nil
         let hover = spotify.hoverProgress
         let active = scrubbing || hover != nil
-        // Bulle : position survolée, ou position en cours pendant le glisser.
+        // Bubble: hovered position, or current position while dragging.
         let bubble: Double? = scrubbing ? fraction : hover
 
         return HStack(spacing: 7 * s) {
@@ -319,7 +319,7 @@ private struct CompactPlayer: View {
                 let width = g.size.width
                 ZStack(alignment: .leading) {
                     Capsule().fill(.white.opacity(0.22))
-                    // Aperçu discret jusqu'au point survolé
+                    // Subtle preview up to the hovered point
                     if let hover, !scrubbing, hover > fraction {
                         Capsule().fill(.white.opacity(0.16))
                             .frame(width: width * hover)
@@ -365,7 +365,7 @@ private struct CompactPlayer: View {
         .foregroundStyle(.white.opacity(0.7))
     }
 
-    /// Garde la bulle entièrement au-dessus de la barre (pas de débordement aux extrémités).
+    /// Keeps the bubble fully above the bar (no overflow at the ends).
     private static func clampBubble(_ x: CGFloat, width: CGFloat, s: CGFloat) -> CGFloat {
         let half = 15 * s
         guard width > half * 2 else { return width / 2 }

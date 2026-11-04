@@ -38,7 +38,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         WallpaperManager.shared.start()
         LockScreenBar.shared.start()
 
-        // ⌃⌥⌘L  → verrouiller
+        // ⌃⌥⌘L  → lock
         hotKey = HotKey(
             keyCode: UInt32(kVK_ANSI_L),
             modifiers: UInt32(cmdKey | optionKey | controlKey)
@@ -46,7 +46,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             LockScreenManager.shared.lock()
         }
 
-        // Verrouillage automatique après inactivité
+        // Auto-lock after inactivity
         idleTimer = Timer.scheduledTimer(withTimeInterval: 10, repeats: true) { _ in
             Task { @MainActor in
                 let minutes = UserDefaults.standard.integer(forKey: Prefs.autoLockMinutes)
@@ -59,7 +59,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             }
         }
 
-        // Verrouiller quand l'écran s'éteint, pour le retrouver au réveil
+        // Lock when the display turns off, so it's there on wake
         NSWorkspace.shared.notificationCenter.addObserver(
             forName: NSWorkspace.screensDidSleepNotification, object: nil, queue: .main
         ) { _ in

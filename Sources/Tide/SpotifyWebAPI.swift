@@ -2,11 +2,11 @@ import AppKit
 import CryptoKit
 import Network
 
-/// Connexion au compte Spotify (API web) pour savoir si un morceau est déjà liké
-/// et pour liker / retirer un like de façon fiable.
+/// Spotify account connection (Web API) to know whether a track is already liked
+/// and to like / unlike reliably.
 ///
-/// Authentification « Authorization Code + PKCE » : pas de secret, pas de mot de passe stocké.
-/// Le navigateur renvoie vers un mini serveur local (127.0.0.1) le temps de la connexion.
+/// "Authorization Code + PKCE" authentication: no secret, no stored password.
+/// The browser redirects to a tiny local server (127.0.0.1) for the duration of the login.
 @MainActor
 final class SpotifyWebAPI: ObservableObject {
     static let shared = SpotifyWebAPI()
@@ -43,11 +43,11 @@ final class SpotifyWebAPI: ObservableObject {
         isConnected = refreshToken != nil
     }
 
-    // MARK: - Connexion
+    // MARK: - Connection
 
     func connect() {
         guard !clientID.isEmpty else {
-            lastError = "Colle d'abord le Client ID de ton app Spotify."
+            lastError = "Paste your Spotify app's Client ID first."
             return
         }
         lastError = nil
@@ -60,7 +60,7 @@ final class SpotifyWebAPI: ObservableObject {
         do {
             try startListener()
         } catch {
-            lastError = "Le port \(Self.redirectPort) est déjà utilisé."
+            lastError = "Port \(Self.redirectPort) is already in use."
             return
         }
 
@@ -89,15 +89,15 @@ final class SpotifyWebAPI: ObservableObject {
         isConnecting = false
     }
 
-    // MARK: - Bibliothèque
+    // MARK: - Library
 
-    /// `true` si le morceau est dans les Titres likés, `nil` si on ne sait pas (non connecté, erreur…).
+    /// `true` if the track is in Liked Songs, `nil` if unknown (not connected, error…).
     func isSaved(uri: String) async -> Bool? {
         guard let data = await call("GET", path: "/me/library/contains", uris: [uri]) else { return nil }
         return (try? JSONSerialization.jsonObject(with: data) as? [Bool])?.first
     }
 
-    /// Ajoute (`true`) ou retire (`false`) le morceau des Titres likés.
+    /// Adds (`true`) or removes (`false`) the track from Liked Songs.
     func setSaved(_ saved: Bool, uri: String) async -> Bool {
         await call(saved ? "PUT" : "DELETE", path: "/me/library", uris: [uri]) != nil
     }
@@ -119,14 +119,14 @@ final class SpotifyWebAPI: ObservableObject {
         if http.statusCode == 401 { accessToken = nil }
         guard (200..<300).contains(http.statusCode) else {
             let body = String(data: data, encoding: .utf8) ?? ""
-            NSLog("Tide – API Spotify %@ %@ → %d %@", method, path, http.statusCode, body)
-            lastError = "API Spotify : erreur \(http.statusCode)"
+            NSLog("Tide – Spotify API %@ %@ → %d %@", method, path, http.statusCode, body)
+            lastError = "Spotify API: error \(http.statusCode)"
             return nil
         }
         return data
     }
 
-    // MARK: - Jetons
+    // MARK: - Tokens
 
     private func validAccessToken() async -> String? {
         if let accessToken, Date() < accessTokenExpiry { return accessToken }
@@ -136,7 +136,7 @@ final class SpotifyWebAPI: ObservableObject {
             "refresh_token": refreshToken,
             "client_id": clientID,
         ])
-        if status == 400 { disconnect() } // jeton révoqué ou expiré : il faut se reconnecter
+        if status == 400 { disconnect() } // token revoked or expired: the user must reconnect
         return status == 200 ? accessToken : nil
     }
 
@@ -156,7 +156,7 @@ final class SpotifyWebAPI: ObservableObject {
         }
     }
 
-    /// Renvoie le code HTTP (0 si pas de réseau).
+    /// Returns the HTTP status code (0 if there's no network).
     private func requestToken(_ form: [String: String]) async -> Int {
         var request = URLRequest(url: URL(string: "https://accounts.spotify.com/api/token")!)
         request.httpMethod = "POST"
@@ -165,12 +165,12 @@ final class SpotifyWebAPI: ObservableObject {
 
         guard let (data, response) = try? await URLSession.shared.data(for: request),
               let http = response as? HTTPURLResponse else {
-            lastError = "Impossible de joindre Spotify."
+            lastError = "Unable to reach Spotify."
             return 0
         }
         let json = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any] ?? [:]
         guard http.statusCode == 200, let token = json["access_token"] as? String else {
-            lastError = (json["error_description"] as? String) ?? "Spotify a refusé la connexion (\(http.statusCode))."
+            lastError = (json["error_description"] as? String) ?? "Spotify rejected the login (\(http.statusCode))."
             return http.statusCode
         }
         accessToken = token
@@ -190,7 +190,7 @@ final class SpotifyWebAPI: ObservableObject {
         }
     }
 
-    // MARK: - Serveur local de redirection
+    // MARK: - Local redirect server
 
     private enum CallbackResult { case ignored, success, failure }
 
@@ -215,8 +215,8 @@ final class SpotifyWebAPI: ObservableObject {
                 let result = self?.handleCallback(request) ?? .ignored
                 let body: String
                 switch result {
-                case .success: body = "<h2>Tide est connecté à Spotify ✓</h2><p>Tu peux fermer cet onglet.</p>"
-                case .failure: body = "<h2>Connexion échouée</h2><p>Réessaie depuis le menu Tide.</p>"
+                case .success: body = "<h2>Tide is connected to Spotify ✓</h2><p>You can close this tab.</p>"
+                case .failure: body = "<h2>Login failed</h2><p>Try again from the Tide menu.</p>"
                 case .ignored: body = ""
                 }
                 let html = """
@@ -247,7 +247,7 @@ final class SpotifyWebAPI: ObservableObject {
 
         guard let code = items["code"], items["state"] == pendingState, let verifier = pendingVerifier else {
             isConnecting = false
-            lastError = items["error"].map { "Spotify a refusé : \($0)" } ?? "Connexion annulée."
+            lastError = items["error"].map { "Spotify refused: \($0)" } ?? "Login cancelled."
             return .failure
         }
         pendingVerifier = nil
@@ -256,7 +256,7 @@ final class SpotifyWebAPI: ObservableObject {
         return .success
     }
 
-    // MARK: - Utilitaires
+    // MARK: - Utilities
 
     private static func randomURLSafe(byteCount: Int) -> String {
         var generator = SystemRandomNumberGenerator()

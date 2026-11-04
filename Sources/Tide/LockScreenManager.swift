@@ -2,14 +2,14 @@ import AppKit
 import SwiftUI
 import LocalAuthentication
 
-/// Fenêtre plein écran capable de recevoir le clavier malgré l'absence de barre de titre.
+/// Full-screen window that can receive keyboard input despite having no title bar.
 final class LockWindow: NSWindow {
     override var canBecomeKey: Bool { true }
     override var canBecomeMain: Bool { true }
 }
 
-/// Affiche l'écran de verrouillage Tide au-dessus de tout, sur tous les écrans,
-/// et ne le retire qu'après Touch ID / mot de passe du Mac.
+/// Shows the Tide lock screen above everything, on every display,
+/// and only removes it after Touch ID / the Mac password.
 @MainActor
 final class LockScreenManager: ObservableObject {
     static let shared = LockScreenManager()
@@ -24,7 +24,7 @@ final class LockScreenManager: ObservableObject {
 
     private static let shieldLevel = NSWindow.Level(rawValue: Int(CGShieldingWindowLevel()))
 
-    // MARK: - Verrouiller
+    // MARK: - Lock
 
     func lock() {
         guard !isLocked else { return }
@@ -42,7 +42,7 @@ final class LockScreenManager: ObservableObject {
 
         keyMonitor = NSEvent.addLocalMonitorForEvents(matching: [.keyDown]) { [weak self] event in
             self?.handleKey(event)
-            return nil // on avale toutes les touches (⌘Q, ⌘W…)
+            return nil // swallow every key (⌘Q, ⌘W…)
         }
 
         screenObserver = NotificationCenter.default.addObserver(
@@ -55,7 +55,7 @@ final class LockScreenManager: ObservableObject {
         }
     }
 
-    // MARK: - Déverrouiller
+    // MARK: - Unlock
 
     func requestUnlock() {
         guard isLocked, !isAuthenticating else { return }
@@ -63,19 +63,19 @@ final class LockScreenManager: ObservableObject {
         let context = LAContext()
         var error: NSError?
         guard context.canEvaluatePolicy(.deviceOwnerAuthentication, error: &error) else {
-            // Mac sans mot de passe : rien à vérifier.
+            // Mac without a password: nothing to verify.
             unlock()
             return
         }
 
         isAuthenticating = true
-        // On descend d'un niveau pour laisser la fenêtre Touch ID / mot de passe passer devant.
+        // Drop down a level so the Touch ID / password prompt can appear in front.
         windows.forEach { $0.level = .floating }
 
         Task { @MainActor in
             let success = (try? await context.evaluatePolicy(
                 .deviceOwnerAuthentication,
-                localizedReason: "déverrouiller l'écran"
+                localizedReason: "unlock the screen"
             )) ?? false
 
             self.isAuthenticating = false
@@ -110,7 +110,7 @@ final class LockScreenManager: ObservableObject {
         })
     }
 
-    // MARK: - Interne
+    // MARK: - Internal
 
     private func buildWindows(animated: Bool) {
         windows.forEach { $0.orderOut(nil) }
@@ -150,7 +150,7 @@ final class LockScreenManager: ObservableObject {
     private func handleKey(_ event: NSEvent) {
         let spotify = SpotifyController.shared
         switch event.keyCode {
-        case 49:  spotify.playPause()   // espace
+        case 49:  spotify.playPause()   // space
         case 123: spotify.previous()    // ←
         case 124: spotify.next()        // →
         default:  requestUnlock()

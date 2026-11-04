@@ -1,8 +1,8 @@
 import SwiftUI
 
 extension View {
-    /// Effet « Liquid Glass ». Utilise le vrai matériau de macOS 26 quand il est disponible,
-    /// sinon une imitation (matériau flouté + reflets sur les bords).
+    /// "Liquid Glass" effect. Uses the real macOS 26 material when available,
+    /// otherwise an imitation (blurred material + edge highlights).
     @ViewBuilder
     func liquidGlass<S: Shape>(_ shape: S, darkness: Double = 0) -> some View {
         #if compiler(>=6.2)
@@ -47,7 +47,7 @@ private struct FallbackGlass<S: Shape>: ViewModifier {
     }
 }
 
-/// Bouton qui se « tasse » quand on appuie, comme sur iOS.
+/// Button that "squishes" when pressed, like on iOS.
 struct PressableStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         configuration.label

@@ -1,12 +1,12 @@
 import AppKit
 import Darwin
 
-/// Accès (privé) au serveur de fenêtres de macOS pour afficher une fenêtre au-dessus du
-/// vrai écran de verrouillage — même technique que boring.notch (via SkyLightWindow).
-/// Les fonctions sont chargées dynamiquement : si macOS les retire, tout est simplement désactivé.
+/// (Private) access to the macOS window server to show a window above the
+/// real lock screen — same technique as boring.notch (via SkyLightWindow).
+/// The functions are loaded dynamically: if macOS removes them, everything is simply disabled.
 enum SkyLight {
-    /// Niveaux absolus des « espaces » du serveur de fenêtres.
-    /// L'écran de verrouillage est à 300 : il faut être au-dessus.
+    /// Absolute levels of the window server "spaces".
+    /// The lock screen is at 300: we need to be above it.
     private enum SpaceLevel: Int32 {
         case screenLock = 300
         case notificationCenterAtScreenLock = 400
@@ -40,7 +40,7 @@ enum SkyLight {
               let showSpaces = load("SLSShowSpaces", as: ShowSpaces.self),
               let addWindows = load("SLSSpaceAddWindowsAndRemoveFromSpaces", as: AddWindowsToSpace.self)
         else {
-            NSLog("Tide – SkyLight indisponible, la barre ne peut pas s'afficher sur l'écran verrouillé")
+            NSLog("Tide – SkyLight unavailable, the bar cannot be shown on the lock screen")
             return nil
         }
         let connection = mainConnection()
@@ -57,13 +57,13 @@ enum SkyLight {
 
     static var isAvailable: Bool { api != nil }
 
-    /// Place la fenêtre (déjà affichée) dans l'espace situé au-dessus de l'écran de verrouillage.
+    /// Moves the (already visible) window into the space above the lock screen.
     static func delegate(_ window: NSWindow) {
         guard let api, window.windowNumber > 0 else { return }
         _ = api.addWindows(api.connection, api.space, [window.windowNumber] as CFArray, 7)
     }
 
-    /// Retire la fenêtre de cet espace.
+    /// Removes the window from that space.
     static func undelegate(_ window: NSWindow) {
         guard let api, let remove = api.removeWindows, window.windowNumber > 0 else { return }
         _ = remove(api.connection, [window.windowNumber] as CFArray, [api.space] as CFArray)

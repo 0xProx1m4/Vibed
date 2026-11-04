@@ -1,12 +1,12 @@
 import AppKit
 import Combine
 
-/// Affiche la pochette du morceau en cours sur le vrai écran de verrouillage de macOS.
+/// Shows the current track's artwork on the real macOS lock screen.
 ///
-/// Depuis macOS Sonoma, l'écran de verrouillage affiche le fond d'écran du bureau, et macOS y
-/// dessine lui-même l'horloge et le lecteur « En lecture » (morceau suivant, barre de durée…).
-/// Tide remplace donc le fond d'écran **uniquement pendant que la session est verrouillée**,
-/// puis remet exactement celui d'origine dès le déverrouillage.
+/// Since macOS Sonoma, the lock screen displays the desktop wallpaper, and macOS itself
+/// draws the clock and the "Now Playing" player on it (next track, progress bar…).
+/// So Tide replaces the wallpaper **only while the session is locked**,
+/// then restores the exact original one as soon as it's unlocked.
 @MainActor
 final class WallpaperManager {
     static let shared = WallpaperManager()
@@ -15,9 +15,9 @@ final class WallpaperManager {
     private var lastSettings: Settings?
     private var generation = 0
     private var isLocked = false
-    /// Notre image est actuellement appliquée (il faudra restaurer).
+    /// Our image is currently applied (it will need to be restored).
     private var isApplied = false
-    /// Images déjà générées pour le morceau en cours, par écran.
+    /// Images already generated for the current track, per display.
     private var prepared: [String: URL] = [:]
     private let renderQueue = DispatchQueue(label: "app.tide.wallpaper", qos: .userInitiated)
     private let folder: URL
@@ -50,12 +50,12 @@ final class WallpaperManager {
         try? FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
     }
 
-    // MARK: - Cycle de vie
+    // MARK: - Lifecycle
 
     func start() {
         lastSettings = .current
 
-        // Si Tide a été fermé brutalement pendant un verrouillage, on remet le fond d'origine.
+        // If Tide was killed while locked, restore the original wallpaper.
         if UserDefaults.standard.dictionary(forKey: Self.originalsKey) != nil
             || FileManager.default.fileExists(atPath: storeBackup.path) {
             isApplied = true
@@ -87,7 +87,7 @@ final class WallpaperManager {
             .store(in: &cancellables)
     }
 
-    /// Remet le fond d'écran d'origine (au déverrouillage, en quittant, ou si le mode est coupé).
+    /// Restores the original wallpaper (on unlock, on quit, or when the mode is turned off).
     func restoreOriginal() {
         guard isApplied else { return }
         isApplied = false
@@ -97,7 +97,7 @@ final class WallpaperManager {
         let fm = FileManager.default
 
         if needsStoreRestore, fm.fileExists(atPath: storeBackup.path) {
-            // Fond animé/aérien : on remet la configuration complète de macOS telle quelle.
+            // Animated/aerial wallpaper: restore macOS's full configuration as-is.
             _ = try? fm.removeItem(at: Self.storePlist)
             if (try? fm.copyItem(at: storeBackup, to: Self.storePlist)) != nil {
                 Self.relaunchWallpaperAgent()
@@ -114,7 +114,7 @@ final class WallpaperManager {
         try? fm.removeItem(at: storeBackup)
     }
 
-    // MARK: - Verrouillage
+    // MARK: - Locking
 
     private func screenLocked() {
         isLocked = true
@@ -129,7 +129,7 @@ final class WallpaperManager {
     private func applyIfPossible() {
         guard isLocked, Settings.current.enabled, SpotifyController.shared.artwork != nil else { return }
         if prepared.isEmpty {
-            prepare() // appliquera à la fin du rendu
+            prepare() // will apply once rendering finishes
         } else {
             setPrepared()
         }
@@ -147,12 +147,12 @@ final class WallpaperManager {
                     .allowClipping: true,
                 ])
             } catch {
-                NSLog("Tide – impossible d'appliquer l'image : %@", error.localizedDescription)
+                NSLog("Tide – unable to apply the image: %@", error.localizedDescription)
             }
         }
     }
 
-    // MARK: - Réactions
+    // MARK: - Reactions
 
     private func artworkChanged(_ image: NSImage?) {
         if image == nil {
@@ -174,7 +174,7 @@ final class WallpaperManager {
         }
     }
 
-    // MARK: - Rendu (à l'avance, pour que le changement au verrouillage soit instantané)
+    // MARK: - Rendering (ahead of time, so the switch on lock is instant)
 
     private func prepare() {
         let settings = Settings.current
@@ -185,7 +185,7 @@ final class WallpaperManager {
         generation += 1
         let gen = generation
         let layout = WallpaperRenderer.Layout(coverSize: settings.coverSize, coverCenter: settings.coverCenter, blur: settings.blur)
-        // L'écran principal est celui où macOS affiche l'horloge : c'est le seul qui reçoit la carte.
+        // The main display is where macOS shows the clock: it's the only one that gets the card.
         let mainID = NSScreen.screens.first.flatMap(Self.displayID(of:))
         let targets: [(id: String, size: CGSize, main: Bool)] = NSScreen.screens.compactMap { screen in
             guard let id = Self.displayID(of: screen) else { return nil }
@@ -198,7 +198,7 @@ final class WallpaperManager {
             var files: [String: URL] = [:]
             for target in targets {
                 guard let data = WallpaperRenderer.render(cover: cover, pixelSize: target.size, layout: layout, drawsCard: target.main) else { continue }
-                // Nom unique : macOS ne recharge pas une image dont le chemin n'a pas changé.
+                // Unique name: macOS doesn't reload an image whose path hasn't changed.
                 let url = folder.appendingPathComponent("tide-\(target.id)-\(UUID().uuidString.prefix(8)).jpg")
                 if (try? data.write(to: url, options: .atomic)) != nil { files[target.id] = url }
             }
@@ -210,13 +210,13 @@ final class WallpaperManager {
                 }
                 self.prepared = files
                 self.cleanUp()
-                // Verrouillé (morceau suivant pendant le verrouillage, ou premier rendu) → on applique.
+                // Locked (next track while locked, or first render) → apply.
                 if self.isLocked { self.setPrepared() }
             }
         }
     }
 
-    // MARK: - Sauvegarde du fond d'origine
+    // MARK: - Backing up the original wallpaper
 
     private func backupOriginalsIfNeeded() {
         guard !isApplied else { return }
@@ -244,10 +244,10 @@ final class WallpaperManager {
         }
     }
 
-    // MARK: - Utilitaires
+    // MARK: - Utilities
 
-    /// Fond « simple » (une image) qu'on peut remettre directement, par opposition aux fonds
-    /// aériens / dynamiques gérés par macOS, qu'on restaure via leur configuration complète.
+    /// "Plain" wallpaper (a single image) that can be restored directly, as opposed to
+    /// aerial / dynamic wallpapers managed by macOS, which are restored via their full configuration.
     private static func isPlainImage(_ path: String) -> Bool {
         let systemManaged = path.contains("com.apple.wallpaper") || path.contains("/.wallpapers/")
             || path.contains("aerials") || path.contains("Aerial")
@@ -258,7 +258,7 @@ final class WallpaperManager {
     private static func relaunchWallpaperAgent() {
         let task = Process()
         task.executableURL = URL(fileURLWithPath: "/usr/bin/killall")
-        task.arguments = ["-KILL", "WallpaperAgent"] // relancé aussitôt par macOS
+        task.arguments = ["-KILL", "WallpaperAgent"] // relaunched immediately by macOS
         try? task.run()
     }
 

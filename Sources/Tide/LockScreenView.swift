@@ -42,9 +42,9 @@ struct LockScreenView: View {
     }
 }
 
-// MARK: - Fond
+// MARK: - Background
 
-/// Pochette agrandie plein écran, légèrement floutée, qui dérive lentement.
+/// Full-screen enlarged artwork, slightly blurred, slowly drifting.
 struct AlbumBackground: View {
     let image: NSImage?
     private static let driftPeriod: TimeInterval = 20
@@ -81,7 +81,7 @@ struct AlbumBackground: View {
                     )
                 }
 
-                // Assombrissement haut/bas pour la lisibilité + vignette
+                // Top/bottom darkening for legibility + vignette
                 LinearGradient(
                     colors: [.black.opacity(0.35), .clear, .clear, .black.opacity(0.55)],
                     startPoint: .top, endPoint: .bottom
@@ -98,7 +98,7 @@ struct AlbumBackground: View {
     }
 }
 
-// MARK: - Horloge
+// MARK: - Clock
 
 struct ClockView: View {
     let s: CGFloat
@@ -119,14 +119,14 @@ struct ClockView: View {
                             startPoint: .top, endPoint: .bottom
                         )
                     )
-                    .shadow(color: .white.opacity(0.25), radius: 1, y: -1)   // reflet « verre »
+                    .shadow(color: .white.opacity(0.25), radius: 1, y: -1)   // "glass" highlight
                     .shadow(color: .black.opacity(0.35), radius: 18 * s, y: 6 * s)
             }
         }
     }
 }
 
-// MARK: - Lecture en cours
+// MARK: - Now Playing
 
 struct NowPlayingStack: View {
     let track: Track
@@ -189,9 +189,9 @@ struct PlayerCard: View {
 
     var body: some View {
         VStack(spacing: 10 * s) {
-            // Titre + artiste
+            // Title + artist
             HStack(alignment: .center) {
-                Image(systemName: "heart").opacity(0) // équilibre visuel
+                Image(systemName: "heart").opacity(0) // visual balance
                     .font(.system(size: 11 * s))
                 VStack(spacing: 2 * s) {
                     Text(track.title)
@@ -205,12 +205,12 @@ struct PlayerCard: View {
                 EqualizerIcon(isPlaying: spotify.isPlaying, height: 11 * s)
             }
 
-            // Progression
+            // Progress
             TimelineView(.periodic(from: .now, by: 0.5)) { ctx in
                 progressRow(current: scrub ?? spotify.position(at: ctx.date))
             }
 
-            // Contrôles
+            // Controls
             HStack(spacing: 28 * s) {
                 ControlButton(systemName: "backward.fill", size: 17 * s) { spotify.previous() }
                 ControlButton(systemName: spotify.isPlaying ? "pause.fill" : "play.fill", size: 24 * s) {
@@ -288,7 +288,7 @@ struct ControlButton: View {
     }
 }
 
-// MARK: - Divers
+// MARK: - Misc
 
 struct IdleCard: View {
     let s: CGFloat
@@ -297,9 +297,9 @@ struct IdleCard: View {
         VStack(spacing: 8 * s) {
             Image(systemName: "music.note")
                 .font(.system(size: 28 * s, weight: .light))
-            Text("Rien en lecture")
+            Text("Nothing Playing")
                 .font(.system(size: 15 * s, weight: .semibold))
-            Text("Lance un morceau dans Spotify")
+            Text("Start a track in Spotify")
                 .font(.system(size: 12 * s))
                 .foregroundStyle(.white.opacity(0.65))
         }
@@ -317,7 +317,7 @@ struct UnlockHint: View {
     var body: some View {
         HStack(spacing: 8 * s) {
             Image(systemName: isAuthenticating ? "touchid" : "lock.fill")
-            Text(isAuthenticating ? "Authentification…" : "Touch ID ou mot de passe pour déverrouiller")
+            Text(isAuthenticating ? "Authenticating…" : "Touch ID or password to unlock")
         }
         .font(.system(size: 12 * s, weight: .medium))
         .foregroundStyle(.white.opacity(0.85))
