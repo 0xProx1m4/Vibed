@@ -1,15 +1,15 @@
 import SwiftUI
 
-/// Petit égaliseur animé (style Apple Music) : des barres arrondies qui ondulent
-/// de façon organique pendant la lecture et se posent en douceur à la pause.
+/// Small animated equalizer (Apple Music style): rounded bars that move
+/// organically during playback and settle gently when paused.
 struct EqualizerIcon: View {
     let isPlaying: Bool
-    /// Hauteur totale de l'icône.
+    /// Total height of the icon.
     var height: CGFloat = 9
 
     private static let speeds: [Double] = [5.1, 7.3, 6.2, 8.4, 5.7]
     private static let phases: [Double] = [0.0, 1.3, 2.6, 0.7, 1.9]
-    /// Hauteurs au repos (pause) : petite silhouette d'onde.
+    /// Resting heights (paused): a small wave silhouette.
     private static let resting: [Double] = [0.3, 0.5, 0.7, 0.45, 0.3]
 
     var body: some View {
@@ -28,12 +28,12 @@ struct EqualizerIcon: View {
         }
         .opacity(isPlaying ? 0.85 : 0.4)
         .animation(.spring(response: 0.45, dampingFraction: 0.7), value: isPlaying)
-        .accessibilityLabel(isPlaying ? "En lecture" : "En pause")
+        .accessibilityLabel(isPlaying ? "Playing" : "Paused")
     }
 
     private func level(_ index: Int, at t: Double) -> Double {
         guard isPlaying else { return Self.resting[index] }
-        // Deux sinusoïdes décalées : mouvement vivant mais jamais saccadé.
+        // Two offset sine waves: lively motion that never looks jerky.
         let speed = Self.speeds[index]
         let phase = Self.phases[index]
         let a = sin(t * speed + phase)

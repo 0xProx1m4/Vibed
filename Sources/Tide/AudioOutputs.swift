@@ -6,7 +6,7 @@ struct AudioOutput: Identifiable, Equatable {
     let name: String
     let transport: UInt32
 
-    /// Icône comme celle du lecteur macOS (ordinateur, casque, AirPlay…).
+    /// Icon matching the macOS player (computer, headphones, AirPlay…).
     var symbol: String {
         switch transport {
         case kAudioDeviceTransportTypeBuiltIn: return "laptopcomputer"
@@ -18,14 +18,14 @@ struct AudioOutput: Identifiable, Equatable {
     }
 }
 
-/// Liste des sorties audio du Mac et choix de la sortie par défaut (CoreAudio).
+/// Lists the Mac's audio outputs and selects the default output (CoreAudio).
 @MainActor
 final class AudioOutputs: ObservableObject {
     static let shared = AudioOutputs()
 
     @Published private(set) var devices: [AudioOutput] = []
     @Published private(set) var currentID: AudioDeviceID = 0
-    /// Pop-up des sorties audio ouvert au-dessus de la barre.
+    /// Audio output pop-up open above the bar.
     @Published var isPickerVisible = false
 
     var current: AudioOutput? { devices.first { $0.id == currentID } }
@@ -55,7 +55,7 @@ final class AudioOutputs: ObservableObject {
         AudioObjectSetPropertyData(AudioObjectID(kAudioObjectSystemObject), &address, 0, nil,
                                    UInt32(MemoryLayout<AudioDeviceID>.size), &id)
         refresh()
-        // Petit délai : on voit la nouvelle sortie passer en bleu avant que le pop-up se ferme.
+        // Short delay: the new output turns blue before the pop-up closes.
         Task { @MainActor [weak self] in
             try? await Task.sleep(nanoseconds: 280_000_000)
             self?.isPickerVisible = false

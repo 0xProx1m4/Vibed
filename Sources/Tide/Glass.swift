@@ -1,8 +1,8 @@
 import SwiftUI
 
 extension View {
-    /// Effet « Liquid Glass ». Utilise le vrai matériau de macOS 26 quand il est disponible,
-    /// sinon une imitation (matériau flouté + reflets sur les bords).
+    /// "Liquid Glass" effect. Uses the real macOS 26 material when available,
+    /// otherwise an imitation (blurred material + edge highlights).
     @ViewBuilder
     func liquidGlass<S: Shape>(_ shape: S, darkness: Double = 0) -> some View {
         #if compiler(>=6.2)
@@ -47,21 +47,21 @@ private struct FallbackGlass<S: Shape>: ViewModifier {
     }
 }
 
-/// Forme du halo affiché derrière un bouton survolé.
+/// Shape of the halo shown behind a hovered button.
 enum HoverHighlight {
-    /// Pas de halo : le bouton s'éclaircit légèrement.
+    /// No halo: the button brightens slightly.
     case none
-    /// Pastille ronde derrière une icône (commandes de lecture).
+    /// Round pill behind an icon (playback controls).
     case circle
-    /// Fond arrondi derrière une ligne (listes).
+    /// Rounded background behind a row (lists).
     case rounded(CGFloat)
 }
 
-/// Bouton qui réagit au survol (halo doux, icône plus nette, léger grossissement)
-/// et se « tasse » quand on appuie, comme sur iOS.
+/// Button that reacts to hover (soft halo, crisper icon, slight scale-up)
+/// and "squishes" when pressed, like on iOS.
 struct PressableStyle: ButtonStyle {
     var highlight: HoverHighlight = .none
-    /// Atténue légèrement le contenu au repos (icônes seules).
+    /// Slightly dims the content at rest (icon-only buttons).
     var dims = true
 
     func makeBody(configuration: Configuration) -> some View {
@@ -73,8 +73,8 @@ private struct PressableBody: View {
     let configuration: ButtonStyleConfiguration
     let highlight: HoverHighlight
     let dims: Bool
-    // `State` déclaré sans `@` : avec le SDK macOS 27, `@State` est une macro dont le
-    // plugin n'existe que dans Xcode, pas dans les Command Line Tools.
+    // `State` declared without `@`: with the macOS 27 SDK, `@State` is a macro whose
+    // plugin only ships with Xcode, not with the Command Line Tools.
     private let hoverState = State(initialValue: false)
     private var isHovered: Bool {
         get { hoverState.wrappedValue }
@@ -111,7 +111,7 @@ private struct PressableBody: View {
         return false
     }
 
-    /// Les icônes sont un peu atténuées au repos et deviennent pleinement blanches au survol.
+    /// Icons are slightly dimmed at rest and become fully white on hover.
     private var labelOpacity: Double {
         guard dims, !highlightIsNone else { return 1 }
         return hovered || pressed ? 1 : 0.86

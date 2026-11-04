@@ -3,21 +3,21 @@ import CoreImage
 import Foundation
 import ImageIO
 
-/// Génère l'image de fond : pochette agrandie et floutée + pochette nette au centre.
-/// L'horloge et le lecteur sont ensuite dessinés par macOS sur le vrai écran de verrouillage.
+/// Generates the background image: enlarged blurred artwork + sharp artwork in the center.
+/// The clock and player are then drawn by macOS on the real lock screen.
 enum WallpaperRenderer {
     struct Layout {
-        /// Hauteur de la carte pochette, en fraction de la hauteur de l'écran.
+        /// Height of the artwork card, as a fraction of the screen height.
         var coverSize: CGFloat
-        /// Centre vertical de la carte, en fraction de la hauteur (0 = haut, 1 = bas).
+        /// Vertical center of the card, as a fraction of the height (0 = top, 1 = bottom).
         var coverCenter: CGFloat
-        /// Flou du fond, de 0 (net, comme la référence) à 1.
+        /// Background blur, from 0 (sharp, like the reference) to 1.
         var blur: CGFloat = 0
 
-        /// Pochette carrée.
+        /// Square artwork.
         static let aspectRatio: CGFloat = 1.0
 
-        /// Rectangle de la carte, en coordonnées « depuis le haut » (pour une hauteur d'écran donnée).
+        /// Card rectangle, in top-down coordinates (for a given screen height).
         func cardRect(screenWidth: CGFloat, screenHeight: CGFloat) -> CGRect {
             let h = screenHeight * coverSize
             let w = h * Self.aspectRatio
@@ -40,15 +40,15 @@ enum WallpaperRenderer {
         let canvas = CGRect(x: 0, y: 0, width: width, height: height)
         ctx.interpolationQuality = .high
 
-        // 1. Fond : pochette en « remplissage », légèrement zoomée, nette par défaut.
-        //    Dessin direct par CoreGraphics (bien plus rapide qu'un agrandissement Lanczos
-        //    par CoreImage, pour un résultat équivalent sur une photo de pochette).
+        // 1. Background: artwork in "fill" mode, slightly zoomed, sharp by default.
+        //    Drawn directly with CoreGraphics (much faster than a Lanczos upscale
+        //    with CoreImage, for an equivalent result on an album cover photo).
         let fill = max(width / CGFloat(cover.width), height / CGFloat(cover.height)) * 1.12
         let drawSize = CGSize(width: CGFloat(cover.width) * fill, height: CGFloat(cover.height) * fill)
         let drawRect = CGRect(x: (width - drawSize.width) / 2, y: (height - drawSize.height) / 2,
                               width: drawSize.width, height: drawSize.height)
         if layout.blur > 0 {
-            // Flou demandé : seul cas où CoreImage est nécessaire.
+            // Blur requested: the only case where CoreImage is needed.
             let background = CIImage(cgImage: cover)
                 .transformed(by: CGAffineTransform(scaleX: fill, y: fill))
                 .transformed(by: CGAffineTransform(translationX: drawRect.minX, y: drawRect.minY))
@@ -62,7 +62,7 @@ enum WallpaperRenderer {
             ctx.draw(cover, in: drawRect)
         }
 
-        // 2. Vignette pour faire ressortir l'horloge et le lecteur
+        // 2. Vignette to make the clock and player stand out
         let black = { (a: CGFloat) in CGColor(srgbRed: 0, green: 0, blue: 0, alpha: a) }
         let center = CGPoint(x: width / 2, y: height / 2)
         if let vignette = CGGradient(colorsSpace: space, colors: [black(0), black(0.3)] as CFArray, locations: [0, 1]) {
@@ -75,9 +75,9 @@ enum WallpaperRenderer {
         }
 
         if drawsCard {
-            // 3. Pochette nette, coins arrondis, ombre portée
+            // 3. Sharp artwork, rounded corners, drop shadow
             let card = layout.cardRect(screenWidth: width, screenHeight: height)
-            // CoreGraphics : origine en bas
+            // CoreGraphics: origin at the bottom
             let rect = CGRect(x: card.minX, y: height - card.maxY, width: card.width, height: card.height)
             let side = rect.height
             let radius = rect.width * 0.04
@@ -99,7 +99,7 @@ enum WallpaperRenderer {
             ctx.draw(cover, in: CGRect(x: rect.midX - drawW / 2, y: rect.midY - drawH / 2, width: drawW, height: drawH))
             ctx.restoreGState()
 
-            // Liseré « verre »
+            // "Glass" edge
             ctx.addPath(path)
             ctx.setStrokeColor(CGColor(srgbRed: 1, green: 1, blue: 1, alpha: 0.22))
             ctx.setLineWidth(max(1, side * 0.0025))
@@ -108,7 +108,7 @@ enum WallpaperRenderer {
 
         guard let image = ctx.makeImage() else { return nil }
 
-        // 4. Encodage JPEG
+        // 4. JPEG encoding
         let data = NSMutableData()
         guard let dest = CGImageDestinationCreateWithData(data, "public.jpeg" as CFString, 1, nil) else { return nil }
         CGImageDestinationAddImage(dest, image, [kCGImageDestinationLossyCompressionQuality: 0.92] as CFDictionary)

@@ -1,12 +1,12 @@
 import AppKit
 import Darwin
 
-/// Accès (privé) au serveur de fenêtres de macOS pour afficher une fenêtre au-dessus du
-/// vrai écran de verrouillage — même technique que boring.notch (via SkyLightWindow).
-/// Les fonctions sont chargées dynamiquement : si macOS les retire, tout est simplement désactivé.
+/// (Private) access to the macOS window server to show a window above the
+/// real lock screen — same technique as boring.notch (via SkyLightWindow).
+/// The functions are loaded dynamically: if macOS removes them, everything is simply disabled.
 enum SkyLight {
-    /// Niveaux absolus des « espaces » du serveur de fenêtres.
-    /// L'écran de verrouillage est à 300.
+    /// Absolute levels of the window server "spaces".
+    /// The lock screen is at 300.
     enum SpaceLevel {
         static let screenLock: Int32 = 300
         static let notificationCenterAtScreenLock: Int32 = 400
@@ -42,7 +42,7 @@ enum SkyLight {
               let showSpaces = load("SLSShowSpaces", as: ShowSpaces.self),
               let addWindows = load("SLSSpaceAddWindowsAndRemoveFromSpaces", as: AddWindowsToSpace.self)
         else {
-            NSLog("Tide – SkyLight indisponible, rien ne peut s'afficher sur l'écran verrouillé")
+            NSLog("Tide – SkyLight unavailable, nothing can be shown on the lock screen")
             return nil
         }
         return API(
@@ -55,7 +55,7 @@ enum SkyLight {
         )
     }()
 
-    /// Un espace par niveau, créé à la première utilisation.
+    /// One space per level, created on first use.
     @MainActor private static var spaces: [Int32: Int32] = [:]
 
     static var isAvailable: Bool { api != nil }
@@ -70,8 +70,8 @@ enum SkyLight {
         return space
     }
 
-    /// Place la fenêtre (déjà affichée) dans un espace du niveau donné. Renvoie l'espace,
-    /// à repasser à `undelegate`.
+    /// Moves the (already visible) window into a space at the given level. Returns the space,
+    /// to pass back to `undelegate`.
     @MainActor @discardableResult
     static func delegate(_ window: NSWindow, level: Int32 = SpaceLevel.notificationCenterAtScreenLock) -> Int32? {
         guard let api, window.windowNumber > 0, let space = space(level: level) else { return nil }
@@ -79,7 +79,7 @@ enum SkyLight {
         return space
     }
 
-    /// Retire la fenêtre de cet espace.
+    /// Removes the window from that space.
     @MainActor static func undelegate(_ window: NSWindow, from space: Int32) {
         guard let api, let remove = api.removeWindows, window.windowNumber > 0 else { return }
         _ = remove(api.connection, [window.windowNumber] as CFArray, [space] as CFArray)

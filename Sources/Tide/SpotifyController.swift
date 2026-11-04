@@ -11,12 +11,12 @@ struct Track: Equatable {
     let duration: TimeInterval
 }
 
-/// Lit l'état de Spotify et le pilote.
+/// Reads Spotify's state and controls it.
 ///
-/// Deux sources d'information :
-/// 1. la notification que Spotify diffuse à chaque changement (aucune autorisation requise) ;
-/// 2. AppleScript, interrogé chaque seconde (position exacte + commandes), qui nécessite
-///    l'autorisation « Automatisation › Spotify ».
+/// Two sources of information:
+/// 1. the notification Spotify broadcasts on every change (no permission required);
+/// 2. AppleScript, polled every second (exact position + commands), which requires
+///    the "Automation › Spotify" permission.
 @MainActor
 final class SpotifyController: ObservableObject {
     static let shared = SpotifyController()
@@ -29,38 +29,38 @@ final class SpotifyController: ObservableObject {
     @Published private(set) var track: Track?
     @Published private(set) var isPlaying = false
     @Published private(set) var artwork: NSImage?
-    /// Chaque pochette qui arrive dans le cache (morceau en cours ou préchargé), pour que le
-    /// fond d'écran puisse être préparé à l'avance.
+    /// Every artwork that lands in the cache (current or preloaded track), so the
+    /// wallpaper can be prepared ahead of time.
     let artworkCached = PassthroughSubject<(trackID: String, image: NSImage, hiRes: Bool), Never>()
     @Published private(set) var access: Access = .unknown
     @Published private(set) var lastError: String?
-    /// Position pendant que l'utilisateur fait glisser la barre de progression.
+    /// Position while the user drags the progress bar.
     @Published var scrubPosition: TimeInterval?
-    /// Position survolée sur la barre de progression (0…1), pour la bulle de temps.
+    /// Hovered position on the progress bar (0…1), for the time bubble.
     @Published var hoverProgress: Double?
-    /// État « liké » connu par morceau (lu via l'API web si le compte est connecté).
+    /// Known "liked" state per track (read via the Web API when the account is connected).
     @Published private var likedCache: [String: Bool] = [:]
 
     var isCurrentTrackLiked: Bool { track.flatMap { likedCache[$0.id] } ?? false }
 
-    /// Sans compte connecté, le ♥ envoie le raccourci « J'aime » de Spotify (⌥⇧B),
-    /// ce qui demande l'autorisation macOS d'envoyer des touches (Accessibilité).
+    /// Without a connected account, the ♥ sends Spotify's "Like" shortcut (⌥⇧B),
+    /// which requires the macOS permission to send keystrokes (Accessibility).
     var canLike: Bool { SpotifyWebAPI.shared.isConnected || CGPreflightPostEventAccess() }
 
     private var position: TimeInterval = 0
     private var positionDate = Date()
     private var timer: Timer?
-    /// Pochettes déjà téléchargées (décodées), par morceau.
+    /// Already downloaded (decoded) artwork, per track.
     private var artworkCache: [String: NSImage] = [:]
-    /// Morceaux dont la pochette en cache est déjà la version haute définition.
+    /// Tracks whose cached artwork is already the high-resolution version.
     private var hiResCached: Set<String> = []
-    /// Ordre d'arrivée dans le cache, pour oublier les plus anciennes pochettes en premier.
+    /// Insertion order in the cache, to evict the oldest artwork first.
     private var artworkCacheOrder: [String] = []
-    /// Un seul téléchargement par morceau, partagé entre le morceau en cours et le préchargement.
+    /// A single download per track, shared between the current track and preloading.
     private var artworkLoads: [String: Task<Void, Never>] = [:]
     private var queueTask: Task<Void, Never>?
     private var lastQueueCheck = Date.distantPast
-    /// Nombre de morceaux à venir dont la pochette est gardée prête.
+    /// Number of upcoming tracks whose artwork is kept ready.
     private static let prefetchCount = 5
     private static let artworkCacheLimit = 30
     private var accessCheckInFlight = false
@@ -87,7 +87,7 @@ final class SpotifyController: ObservableObject {
     end timeout
     """
 
-    // MARK: - Cycle de vie
+    // MARK: - Lifecycle
 
     func start() {
         guard timer == nil else { return }
@@ -109,20 +109,20 @@ final class SpotifyController: ObservableObject {
         poll()
     }
 
-    /// Position interpolée (fluide entre deux lectures).
+    /// Interpolated position (smooth between two polls).
     func position(at date: Date) -> TimeInterval {
         guard let track else { return 0 }
         let p = isPlaying ? position + date.timeIntervalSince(positionDate) : position
         return min(max(p, 0), track.duration)
     }
 
-    // MARK: - Commandes
+    // MARK: - Commands
 
     func requestLikePermission() {
         _ = CGRequestPostEventAccess()
     }
 
-    /// Demande à Spotify (API web) si le morceau en cours est dans les Titres likés.
+    /// Asks Spotify (Web API) whether the current track is in Liked Songs.
     func refreshLikedState() {
         guard let track, Self.isLikeable(track.id), SpotifyWebAPI.shared.isConnected else { return }
         let id = track.id
@@ -132,16 +132,16 @@ final class SpotifyController: ObservableObject {
         }
     }
 
-    /// Ajoute / retire le morceau des Titres likés.
-    /// - Compte Spotify connecté : via l'API web (fiable, et l'état réel est connu).
-    /// - Sinon : raccourci Spotify ⌥⇧B envoyé directement à l'app (état inconnu).
+    /// Adds / removes the track from Liked Songs.
+    /// - Spotify account connected: via the Web API (reliable, and the real state is known).
+    /// - Otherwise: Spotify shortcut ⌥⇧B sent directly to the app (state unknown).
     func toggleLike() {
         guard let track else { return }
         let id = track.id
         let newValue = !(likedCache[id] ?? false)
 
         if SpotifyWebAPI.shared.isConnected, Self.isLikeable(id) {
-            likedCache[id] = newValue // affichage immédiat
+            likedCache[id] = newValue // update the UI immediately
             Task { [weak self] in
                 let ok = await SpotifyWebAPI.shared.setSaved(newValue, uri: id)
                 if !ok { self?.likedCache[id] = !newValue }
@@ -183,7 +183,7 @@ final class SpotifyController: ObservableObject {
         send("set player position to \(String(format: "%.2f", time))")
     }
 
-    /// Redemande l'autorisation à macOS (affiche la fenêtre « Tide souhaite contrôler Spotify »).
+    /// Asks macOS for permission again (shows the "Tide wants to control Spotify" prompt).
     func requestAccess() {
         accessCheckInFlight = false
         access = .unknown
@@ -196,13 +196,13 @@ final class SpotifyController: ObservableObject {
         }
     }
 
-    // MARK: - Autorisation
+    // MARK: - Permission
 
     private func checkAccess(prompt: Bool) {
         guard !accessCheckInFlight else { return }
         accessCheckInFlight = true
-        // AEDeterminePermissionToAutomateTarget bloque tant que la fenêtre est affichée :
-        // jamais sur le thread principal.
+        // AEDeterminePermissionToAutomateTarget blocks while the prompt is shown:
+        // never on the main thread.
         let bundleID = Self.bundleID
         DispatchQueue.global(qos: .userInitiated).async { [weak self] in
             let target = NSAppleEventDescriptor(bundleIdentifier: bundleID)
@@ -222,13 +222,13 @@ final class SpotifyController: ObservableObject {
                 case OSStatus(errAEEventWouldRequireUserConsent):
                     self.access = .unknown
                 default:
-                    break // Spotify pas encore lancé, etc. On réessaiera.
+                    break // Spotify not launched yet, etc. We'll retry.
                 }
             }
         }
     }
 
-    // MARK: - Interne
+    // MARK: - Internal
 
     private func freezePosition() {
         position = position(at: Date())
@@ -252,7 +252,7 @@ final class SpotifyController: ObservableObject {
         guard running else { clear(); return }
 
         guard access == .granted else {
-            // Premier passage : on demande l'autorisation (une seule fenêtre système).
+            // First pass: ask for permission (a single system prompt).
             if access == .unknown { checkAccess(prompt: true) }
             return
         }
@@ -277,7 +277,7 @@ final class SpotifyController: ObservableObject {
         )
     }
 
-    /// Données envoyées par Spotify à chaque changement — fonctionne même sans autorisation.
+    /// Data sent by Spotify on every change — works even without permission.
     private func applyNotification(_ info: [AnyHashable: Any]) {
         let state = (info["Player State"] as? String ?? "").lowercased()
         if state == "stopped" { clear(); return }
@@ -305,9 +305,9 @@ final class SpotifyController: ObservableObject {
         position = newPosition
         positionDate = Date()
         if lastError != nil { lastError = nil }
-        // D'abord la pochette du morceau en cours (souvent déjà en cache → instantané)…
+        // First the current track's artwork (often already cached → instant)…
         loadArtworkIfNeeded(trackID: newTrack.id, url: artworkURL)
-        // …puis on complète les 5 suivantes. Aussi de temps en temps, si la file a changé.
+        // …then fill in the next 5. Also every now and then, in case the queue changed.
         if trackChanged || Date().timeIntervalSince(lastQueueCheck) > 45 {
             prefetchUpcomingArtwork()
         }
@@ -319,19 +319,19 @@ final class SpotifyController: ObservableObject {
         if artwork != nil { artwork = nil }
     }
 
-    // MARK: - Pochette
+    // MARK: - Artwork
 
     private func loadArtworkIfNeeded(trackID: String, url: URL?) {
-        // En cache (préchargée) : affichage immédiat.
+        // Cached (preloaded): show immediately.
         if let cached = artworkCache[trackID], artwork !== cached { artwork = cached }
 
-        // Déjà en cours de téléchargement (préchargement compris) : il mettra la pochette
-        // à jour à son arrivée. Ou déjà en haute définition : rien à faire.
+        // Already downloading (preloading included): it will update the artwork
+        // when it arrives. Or already high-resolution: nothing to do.
         guard artworkLoads[trackID] == nil, !hiResCached.contains(trackID) else { return }
         if artworkCache[trackID] != nil, url == nil { return }
 
-        // La notification de Spotify n'a pas l'URL de la pochette, mais le script lancé
-        // juste après l'a : on l'attend plutôt que de faire une recherche réseau en plus.
+        // Spotify's notification doesn't include the artwork URL, but the script run
+        // right after does: wait for it rather than making an extra network lookup.
         if url == nil, access == .granted { return }
 
         startArtworkLoad(trackID: trackID, url: url)
@@ -344,9 +344,9 @@ final class SpotifyController: ObservableObject {
         }
     }
 
-    /// Télécharge la pochette 640 px (légère, prête vite) et, en même temps, la version
-    /// haute définition (2000 px) qui la remplace dès qu'elle arrive. Chaque version est
-    /// mise en cache et affichée si le morceau est celui en cours.
+    /// Downloads the 640 px artwork (light, ready quickly) and, at the same time, the
+    /// high-resolution version (2000 px) that replaces it as soon as it arrives. Each version is
+    /// cached and shown if the track is the current one.
     private func fetchArtwork(trackID: String, url: URL?) async {
         var imageURL = url
         if imageURL == nil { imageURL = await Self.oEmbedThumbnail(for: trackID) }
@@ -359,17 +359,17 @@ final class SpotifyController: ObservableObject {
         if let best = await hiRes {
             store(best, for: trackID, hiRes: true)
         } else if artworkCache[trackID] != nil {
-            hiResCached.insert(trackID) // pas de version HD chez Spotify : la 640 px suffit
+            hiResCached.insert(trackID) // Spotify has no HD version: the 640 px one will do
         }
     }
 
     private func store(_ image: NSImage, for trackID: String, hiRes: Bool) {
-        if !hiRes, hiResCached.contains(trackID) { return } // la HD est arrivée la première
+        if !hiRes, hiResCached.contains(trackID) { return } // the HD version arrived first
         if hiRes { hiResCached.insert(trackID) }
         artworkCacheOrder.removeAll { $0 == trackID }
         artworkCacheOrder.append(trackID)
         artworkCache[trackID] = image
-        // On oublie les plus anciennes ; le morceau en cours et ceux à venir sont les plus récents.
+        // Evict the oldest; the current and upcoming tracks are the most recent.
         while artworkCacheOrder.count > Self.artworkCacheLimit {
             let old = artworkCacheOrder.removeFirst()
             artworkCache[old] = nil
@@ -379,19 +379,19 @@ final class SpotifyController: ObservableObject {
         artworkCached.send((trackID, image, hiRes))
     }
 
-    /// La pochette en cache est la version définitive (HD, ou il n'y en a pas d'autre).
+    /// The cached artwork is the final version (HD, or there's no other one).
     func hasFinalArtwork(_ trackID: String) -> Bool { hiResCached.contains(trackID) }
 
-    /// Garde prêtes les pochettes des 5 prochains morceaux de la file (compte Spotify
-    /// connecté). Au premier lancement, les 5 sont téléchargées en parallèle ; ensuite, à
-    /// chaque changement de morceau, seule la nouvelle venue en fin de fenêtre manque.
+    /// Keeps the artwork of the next 5 tracks in the queue ready (Spotify account
+    /// connected). On first launch, all 5 are downloaded in parallel; then, on
+    /// each track change, only the newcomer at the end of the window is missing.
     func prefetchUpcomingArtwork() {
         guard SpotifyWebAPI.shared.isConnected else { return }
         lastQueueCheck = Date()
         queueTask?.cancel()
         queueTask = Task { [weak self] in
-            // Juste après un saut, Spotify peut renvoyer l'ancienne file un court instant :
-            // on redemande tant qu'elle ne commence pas par le morceau en cours.
+            // Right after a skip, Spotify may briefly return the old queue:
+            // ask again until it starts with the current track.
             for attempt in 0..<4 {
                 if attempt > 0 { try? await Task.sleep(nanoseconds: 350_000_000) }
                 guard !Task.isCancelled,
@@ -409,8 +409,8 @@ final class SpotifyController: ObservableObject {
         }
     }
 
-    /// Les URL de pochette Spotify encodent la taille : …ab67616d0000b273… = 640 px,
-    /// …ab67616d000082c1… = taille d'origine (souvent 2000 px).
+    /// Spotify artwork URLs encode the size: …ab67616d0000b273… = 640 px,
+    /// …ab67616d000082c1… = original size (often 2000 px).
     nonisolated private static func highResolutionURL(for url: URL) -> URL? {
         let string = url.absoluteString
         guard let range = string.range(of: "ab67616d0000[0-9a-fA-F]{4}", options: .regularExpression) else { return nil }
@@ -418,8 +418,8 @@ final class SpotifyController: ObservableObject {
         return hiRes == string ? nil : URL(string: hiRes)
     }
 
-    /// Télécharge et décode l'image hors du thread principal : elle s'affiche ensuite
-    /// sans à-coup (une NSImage ordinaire ne se décode qu'au premier affichage).
+    /// Downloads and decodes the image off the main thread: it then displays
+    /// without a hitch (a regular NSImage only decodes on first display).
     nonisolated private static func downloadImage(_ url: URL?) async -> NSImage? {
         guard let url else { return nil }
         guard let (data, response) = try? await URLSession.shared.data(from: url),
@@ -431,7 +431,7 @@ final class SpotifyController: ObservableObject {
         return NSImage(cgImage: image, size: NSSize(width: image.width, height: image.height))
     }
 
-    /// Pochette via l'API publique oEmbed de Spotify (sans compte ni clé).
+    /// Artwork via Spotify's public oEmbed API (no account or key needed).
     nonisolated private static func oEmbedThumbnail(for trackID: String) async -> URL? {
         // "spotify:track:abc" → https://open.spotify.com/track/abc
         let parts = trackID.split(separator: ":")
@@ -449,14 +449,14 @@ final class SpotifyController: ObservableObject {
 
     // MARK: - AppleScript
 
-    /// AppleScript (NSAppleScript) doit être utilisé sur le thread principal.
+    /// AppleScript (NSAppleScript) must be used on the main thread.
     private func execute(_ source: String) -> NSAppleEventDescriptor? {
         var error: NSDictionary?
         let result = NSAppleScript(source: source)?.executeAndReturnError(&error)
         if let error {
             let code = error[NSAppleScript.errorNumber] as? Int ?? 0
-            let message = error[NSAppleScript.errorMessage] as? String ?? "erreur inconnue"
-            NSLog("Tide – erreur AppleScript %d : %@", code, message)
+            let message = error[NSAppleScript.errorMessage] as? String ?? "unknown error"
+            NSLog("Tide – AppleScript error %d: %@", code, message)
             if code == -1743 { access = .denied }
             lastError = "\(message) (\(code))"
         }

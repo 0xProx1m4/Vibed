@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
-# Construit Tide.app (release) dans ./build
+# Builds Tide.app (release) into ./build
 set -euo pipefail
 cd "$(dirname "$0")"
 
-# Utilise Xcode complet s'il est installé (les Command Line Tools seuls
-# n'incluent pas tous les plugins SwiftUI).
+# Use the full Xcode if it's installed (the Command Line Tools alone
+# don't include every SwiftUI plugin).
 if [ -z "${DEVELOPER_DIR:-}" ] && [ -d /Applications/Xcode.app ]; then
   export DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer
 fi
@@ -18,7 +18,7 @@ mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
 cp "$BIN_DIR/Tide" "$APP/Contents/MacOS/Tide"
 cp Resources/Info.plist "$APP/Contents/Info.plist"
 
-# Signature ad-hoc (nécessaire pour la permission Apple Events / Spotify)
+# Ad-hoc signing (required for the Apple Events / Spotify permission)
 codesign --force --sign - "$APP"
 
-echo "✅  $APP prêt. Lance-le avec : open $APP"
+echo "✅  $APP is ready. Launch it with: open $APP"

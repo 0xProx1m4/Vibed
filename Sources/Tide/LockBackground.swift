@@ -1,7 +1,7 @@
 import AppKit
 import SwiftUI
 
-/// Fenêtre plein écran, transparente aux clics, qui ne sert qu'à afficher une image.
+/// Full-screen, click-through window whose only job is to show an image.
 private final class LockBackgroundPanel: NSPanel {
     init(frame: CGRect) {
         super.init(contentRect: frame, styleMask: [.borderless, .nonactivatingPanel],
@@ -9,7 +9,7 @@ private final class LockBackgroundPanel: NSPanel {
         isOpaque = false
         backgroundColor = .clear
         hasShadow = false
-        ignoresMouseEvents = true // les clics vont à macOS (mot de passe, avatar…)
+        ignoresMouseEvents = true // clicks go through to macOS (password, avatar…)
         isReleasedWhenClosed = false
         hidesOnDeactivate = false
         canBecomeVisibleWithoutLogin = true
@@ -20,20 +20,20 @@ private final class LockBackgroundPanel: NSPanel {
     override var canBecomeMain: Bool { false }
 }
 
-/// Fond de l'écran verrouillé dessiné par Tide (pochette en plein écran), pour qu'il change
-/// instantanément avec le morceau : appliquer un fond d'écran prend une à deux secondes à macOS.
+/// Lock screen background drawn by Tide (full-screen artwork), so it changes
+/// instantly with the track: applying a wallpaper takes macOS one to two seconds.
 ///
-/// La fenêtre est placée dans un espace au niveau de l'écran de verrouillage,
-/// au niveau 2002 : entre le cache plein écran de loginwindow (2001) et son interface
-/// (2004, horloge et mot de passe). Le fond d'écran continue d'être appliqué
-/// en dessous : si la fenêtre finit cachée derrière, on retombe simplement sur l'ancien
-/// comportement. Les niveaux se règlent sans recompiler (voir `Prefs.lockBackground…`).
+/// The window is placed in a space at the lock screen level,
+/// at window level 2002: between loginwindow's full-screen cover (2001) and its UI
+/// (2004, clock and password). The wallpaper keeps being applied
+/// underneath: if the window ends up hidden behind, we simply fall back to the old
+/// behavior. The levels can be tuned without recompiling (see `Prefs.lockBackground…`).
 @MainActor
 final class LockBackground {
     static let shared = LockBackground()
 
     private var panels: [LockBackgroundPanel] = []
-    /// Espace SkyLight de chaque fenêtre, pour l'en retirer.
+    /// SkyLight space of each window, so it can be removed from it.
     private var spaces: [ObjectIdentifier: Int32] = [:]
     private var isLocked = false
     private var unlockTask: Task<Void, Never>?
@@ -57,7 +57,7 @@ final class LockBackground {
     private func screenLocked() {
         isLocked = true
         unlockTask?.cancel()
-        removeAll() // réglages ou écrans peut-être changés depuis le dernier verrouillage
+        removeAll() // settings or displays may have changed since the last lock
         guard isEnabled else { return }
 
         let d = UserDefaults.standard
@@ -82,9 +82,9 @@ final class LockBackground {
 
     // MARK: - Diagnostic
 
-    /// Fichier où Tide note, à chaque verrouillage, les fenêtres affichées de l'avant vers
-    /// l'arrière, avec leur niveau : on y voit où macOS dessine son fond et son interface,
-    /// et où se trouve la fenêtre de fond de Tide.
+    /// File where Tide records, on every lock, the on-screen windows from front to
+    /// back, with their level: it shows where macOS draws its background and UI,
+    /// and where Tide's background window sits.
     static var diagnosticFile: URL {
         FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
             .appendingPathComponent("Tide/lock-diagnostic.txt")
@@ -97,11 +97,11 @@ final class LockBackground {
             guard let self, self.isLocked else { return }
             let info = CGWindowListCopyWindowInfo([.optionOnScreenOnly], kCGNullWindowID) as? [[String: Any]] ?? []
             var lines = [
-                "Tide – verrouillage du \(Date())",
-                "Fond Tide : espace \(spaceLevel), niveau de fenêtre \(windowLevel), fenêtres \(ours.sorted())",
-                "Visibles (les fenêtres Tide sont \(self.panels.map(\.isVisible))) :",
+                "Tide – lock at \(Date())",
+                "Tide background: space \(spaceLevel), window level \(windowLevel), windows \(ours.sorted())",
+                "Visible (Tide windows are \(self.panels.map(\.isVisible))):",
                 "",
-                "  n°  | niveau      | app                    | alpha | cadre",
+                "  no. | level       | app                    | alpha | frame",
             ]
             for window in info {
                 let number = window[kCGWindowNumber as String] as? Int ?? 0
@@ -111,7 +111,7 @@ final class LockBackground {
                 let bounds = (window[kCGWindowBounds as String] as? [String: Any]).flatMap {
                     CGRect(dictionaryRepresentation: $0 as CFDictionary)
                 } ?? .zero
-                let mark = ours.contains(number) ? "  ← FOND TIDE" : ""
+                let mark = ours.contains(number) ? "  ← TIDE BACKGROUND" : ""
                 func pad(_ s: String, _ n: Int) -> String {
                     s.count >= n ? String(s.prefix(n)) : s + String(repeating: " ", count: n - s.count)
                 }
@@ -126,7 +126,7 @@ final class LockBackground {
 
     private func screenUnlocked() {
         isLocked = false
-        // Même petit délai que la barre, pour ne pas clignoter pendant le déverrouillage.
+        // Same short delay as the bar, to avoid flickering during unlock.
         unlockTask?.cancel()
         unlockTask = Task { @MainActor [weak self] in
             try? await Task.sleep(nanoseconds: 150_000_000)
@@ -145,10 +145,10 @@ final class LockBackground {
     }
 }
 
-/// Même rendu que l'image de fond d'écran (`WallpaperRenderer`), mais dessiné directement.
-/// Tout est fait pour que le changement soit aussi rapide que la pochette du milieu :
-/// l'image est affichée telle quelle (aucun filtre plein écran à recalculer), seule elle
-/// passe en fondu, et la vignette reste fixe par-dessus.
+/// Same look as the wallpaper image (`WallpaperRenderer`), but drawn directly.
+/// Everything is designed so the change is as fast as the center artwork:
+/// the image is shown as-is (no full-screen filter to recompute), only it
+/// cross-fades, and the vignette stays fixed on top.
 private struct LockBackgroundView: View {
     @ObservedObject private var spotify = SpotifyController.shared
     @AppStorage(Prefs.backgroundBlur) private var blur = 0.0
@@ -161,7 +161,7 @@ private struct LockBackgroundView: View {
                     .id(ObjectIdentifier(art))
                     .transition(.opacity)
 
-                // Vignette pour faire ressortir l'horloge et le lecteur (fixe, jamais redessinée)
+                // Vignette to make the clock and player stand out (fixed, never redrawn)
                 ZStack {
                     RadialGradient(colors: [.black.opacity(0), .black.opacity(0.3)], center: .center,
                                    startRadius: size.height * 0.3,
@@ -189,7 +189,7 @@ private struct LockBackgroundView: View {
             .scaleEffect(1.12)
             .frame(width: size.width, height: size.height)
             .clipped()
-        // Le flou coûte cher en plein écran : seulement s'il est réglé.
+        // Blur is expensive at full screen: only when it's enabled.
         if blur > 0 {
             view.blur(radius: size.height * 0.012 * blur, opaque: true)
         } else {
@@ -198,8 +198,8 @@ private struct LockBackgroundView: View {
     }
 }
 
-/// Durée commune des fondus de pochette sur l'écran verrouillé (fond et pochette du milieu
-/// restent synchronisés).
+/// Shared duration of artwork cross-fades on the lock screen (background and center
+/// artwork stay in sync).
 enum LockTiming {
     static let artworkFade: Double = 0.2
 }

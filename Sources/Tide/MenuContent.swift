@@ -1,9 +1,9 @@
 import SwiftUI
 
-/// Petit panneau de la barre des menus.
+/// Small menu bar panel.
 struct MenuContent: View {
-    /// Réglages de l'écran verrouillé (pochette, barre, taille, position, flou).
-    /// Masqués pour l'instant : passe à `true` pour les réafficher dans le menu.
+    /// Lock screen settings (artwork, bar, size, position, blur).
+    /// Hidden for now: set to `true` to show them in the menu again.
     private static let showsCustomization = false
 
     @ObservedObject private var spotify = SpotifyController.shared
@@ -31,12 +31,12 @@ struct MenuContent: View {
 
             Divider()
 
-            MenuRowButton(title: "Quitter Tide", systemImage: "power", shortcut: "⌘Q") {
-                // Laisse le temps de voir le bouton s'enfoncer avant de fermer.
+            MenuRowButton(title: "Quit Tide", systemImage: "power", shortcut: "⌘Q") {
+                // Leave time to see the button press before quitting.
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.18) { NSApp.terminate(nil) }
             }
             .keyboardShortcut("q", modifiers: .command)
-            .padding(.horizontal, -8) // la surbrillance déborde un peu, comme un menu macOS
+            .padding(.horizontal, -8) // the highlight overflows slightly, like a macOS menu
                 .padding(.top, -6)
         }
         .padding(16)
@@ -45,17 +45,17 @@ struct MenuContent: View {
 
     private var customization: some View {
         VStack(alignment: .leading, spacing: 10) {
-            sectionTitle("Écran de verrouillage macOS")
-            Toggle("Pochette sur l'écran verrouillé", isOn: $wallpaperMode)
-            Toggle("Barre Liquid Glass sur l'écran verrouillé", isOn: $lockScreenBar)
+            sectionTitle("macOS Lock Screen")
+            Toggle("Artwork on the lock screen", isOn: $wallpaperMode)
+            Toggle("Liquid Glass bar on the lock screen", isOn: $lockScreenBar)
             if wallpaperMode {
-                Text("Ton fond d'écran n'est jamais modifié pendant que tu utilises le Mac. Verrouille avec ⌃⌘Q pour voir le résultat.")
+                Text("Your wallpaper is never changed while you use your Mac. Lock with ⌃⌘Q to see the result.")
                     .font(.system(size: 11))
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
-                labeledSlider("Taille", value: $coverSize, range: 0.25...0.45)
+                labeledSlider("Size", value: $coverSize, range: 0.25...0.45)
                 labeledSlider("Position", value: $coverCenter, range: 0.36...0.52)
-                labeledSlider("Flou", value: $backgroundBlur, range: 0...1)
+                labeledSlider("Blur", value: $backgroundBlur, range: 0...1)
             }
         }
         .font(.system(size: 12))
@@ -64,30 +64,30 @@ struct MenuContent: View {
     @ViewBuilder
     private var spotifyAccount: some View {
         VStack(alignment: .leading, spacing: 8) {
-            sectionTitle("Compte Spotify (bouton ♥)")
+            sectionTitle("Spotify Account (♥ button)")
             if webAPI.isConnected {
                 HStack {
-                    Label("Connecté", systemImage: "checkmark.circle.fill")
+                    Label("Connected", systemImage: "checkmark.circle.fill")
                         .foregroundStyle(.green)
                     Spacer()
                     Button { webAPI.disconnect() } label: {
-                        Text("Se déconnecter")
+                        Text("Disconnect")
                             .padding(.horizontal, 8)
                             .frame(height: 24)
                             .contentShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
                     }
                     .buttonStyle(MenuRowStyle())
-                    .padding(.trailing, -8) // le texte reste aligné sur le bord, la surbrillance déborde
+                    .padding(.trailing, -8) // the text stays aligned with the edge, the highlight overflows
                 }
                 .font(.system(size: 12))
                 if webAPI.queueForbidden {
-                    Text("Reconnecte-toi (Se déconnecter, puis Se connecter) pour que Tide précharge les pochettes des prochains morceaux.")
+                    Text("Reconnect (Disconnect, then Connect) so Tide can preload the artwork of upcoming tracks.")
                         .font(.system(size: 11))
                         .foregroundStyle(.secondary)
                         .fixedSize(horizontal: false, vertical: true)
                 }
             } else {
-                Text("Pour que le ♥ soit rempli quand un morceau est déjà liké :\n1. developer.spotify.com/dashboard → Create app\n2. Redirect URI : \(SpotifyWebAPI.redirectURI)\n3. Coche « Web API », enregistre, copie le Client ID ici :")
+                Text("To have the ♥ filled when a track is already liked:\n1. developer.spotify.com/dashboard → Create app\n2. Redirect URI: \(SpotifyWebAPI.redirectURI)\n3. Check \"Web API\", save, and paste the Client ID here:")
                     .font(.system(size: 11))
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
@@ -96,17 +96,17 @@ struct MenuContent: View {
                     .textFieldStyle(.roundedBorder)
                     .font(.system(size: 11, design: .monospaced))
                 HStack {
-                    Button(webAPI.isConnecting ? "Connexion…" : "Se connecter à Spotify") { webAPI.connect() }
+                    Button(webAPI.isConnecting ? "Connecting…" : "Connect to Spotify") { webAPI.connect() }
                         .disabled(clientID.trimmingCharacters(in: .whitespaces).isEmpty)
                     Spacer()
-                    Button("Ouvrir le dashboard") {
+                    Button("Open the dashboard") {
                         NSWorkspace.shared.open(URL(string: "https://developer.spotify.com/dashboard")!)
                     }
                     .buttonStyle(.link)
                 }
                 .font(.system(size: 12))
                 if !spotify.canLike {
-                    Button("Ou : ♥ sans compte (autorisation Accessibilité)") {
+                    Button("Or: ♥ without an account (Accessibility permission)") {
                         spotify.requestLikePermission()
                     }
                     .buttonStyle(.link)
@@ -142,28 +142,28 @@ struct MenuContent: View {
             VStack(alignment: .leading, spacing: 8) {
                 Label(
                     spotify.access == .denied
-                        ? "Tide n'a pas le droit de contrôler Spotify."
-                        : "Tide a besoin d'accéder à Spotify.",
+                        ? "Tide isn't allowed to control Spotify."
+                        : "Tide needs access to Spotify.",
                     systemImage: "exclamationmark.triangle.fill"
                 )
                 .font(.system(size: 12, weight: .semibold))
                 .foregroundStyle(.orange)
 
                 if spotify.access == .denied {
-                    Text("Réglages Système › Confidentialité et sécurité › Automatisation › Tide → coche Spotify.")
+                    Text("System Settings › Privacy & Security › Automation › Tide → check Spotify.")
                         .font(.system(size: 11))
                         .foregroundStyle(.secondary)
                         .fixedSize(horizontal: false, vertical: true)
-                    Button("Ouvrir les réglages") { spotify.openAutomationSettings() }
+                    Button("Open Settings") { spotify.openAutomationSettings() }
                 } else {
-                    Button("Autoriser l'accès à Spotify") { spotify.requestAccess() }
+                    Button("Allow Access to Spotify") { spotify.requestAccess() }
                 }
             }
             .padding(10)
             .frame(maxWidth: .infinity, alignment: .leading)
             .liquidGlass(cornerRadius: 10)
         } else if let error = spotify.lastError, spotify.track == nil {
-            Text("Spotify : \(error)")
+            Text("Spotify: \(error)")
                 .font(.system(size: 11))
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
@@ -187,7 +187,7 @@ struct MenuContent: View {
             .clipShape(RoundedRectangle(cornerRadius: 9, style: .continuous))
 
             VStack(alignment: .leading, spacing: 2) {
-                Text(spotify.track?.title ?? (spotify.isRunning ? "Rien en lecture" : "Spotify n'est pas ouvert"))
+                Text(spotify.track?.title ?? (spotify.isRunning ? "Nothing Playing" : "Spotify isn't open"))
                     .font(.system(size: 13, weight: .semibold))
                 Text(spotify.track?.artist ?? "Tide")
                     .font(.system(size: 12))
@@ -210,8 +210,8 @@ struct MenuContent: View {
     }
 }
 
-/// Ligne de menu à la macOS (« Quitter Tide ») : surbrillance discrète au survol,
-/// légère pression au clic.
+/// macOS-style menu row ("Quit Tide"): subtle highlight on hover,
+/// slight press on click.
 private struct MenuRowButton: View {
     let title: String
     let systemImage: String
@@ -249,7 +249,7 @@ private struct MenuRowStyle: ButtonStyle {
 
 private struct MenuRowBody: View {
     let configuration: ButtonStyleConfiguration
-    // `State` sans `@` : voir `PressableBody` (pas de macro avec les Command Line Tools).
+    // `State` without `@`: see `PressableBody` (no macros with the Command Line Tools).
     private let hoverState = State(initialValue: false)
     private var isHovered: Bool {
         get { hoverState.wrappedValue }

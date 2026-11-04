@@ -1,7 +1,7 @@
 import AppKit
 import SwiftUI
 
-/// Panneau configuré comme celui de boring.notch pour pouvoir vivre au-dessus du verrouillage.
+/// Panel configured like boring.notch's so it can live above the lock screen.
 private final class LockBarPanel: NSPanel {
     override init(contentRect: NSRect, styleMask: NSWindow.StyleMask,
                   backing: NSWindow.BackingStoreType, defer flag: Bool) {
@@ -17,7 +17,7 @@ private final class LockBarPanel: NSPanel {
         isReleasedWhenClosed = false
         hidesOnDeactivate = false
         canBecomeVisibleWithoutLogin = true
-        acceptsMouseMovedEvents = true // survol de la barre de progression
+        acceptsMouseMovedEvents = true // hovering over the progress bar
         appearance = NSAppearance(named: .darkAqua)
         collectionBehavior = [.fullScreenAuxiliary, .stationary, .canJoinAllSpaces, .ignoresCycle]
     }
@@ -26,20 +26,20 @@ private final class LockBarPanel: NSPanel {
     override var canBecomeMain: Bool { false }
 }
 
-/// Vue hébergée qui réagit dès le premier clic.
+/// Hosting view that responds to the very first click.
 private final class FirstClickHostingView<Content: View>: NSHostingView<Content> {
     override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
 }
 
-/// Barre Liquid Glass (titre, durée, ⏮ ⏯ ⏭) affichée sur le VRAI écran de verrouillage,
-/// juste sous la pochette dessinée dans le fond d'écran.
+/// Liquid Glass bar (title, progress, ⏮ ⏯ ⏭) shown on the REAL lock screen,
+/// just below the artwork drawn into the wallpaper.
 @MainActor
 final class LockScreenBar {
     static let shared = LockScreenBar()
 
     private var panel: LockBarPanel?
     private var isLocked = false
-    /// Espace SkyLight où la barre a été placée.
+    /// SkyLight space the bar was placed in.
     private var space: Int32?
     private var unlockTask: Task<Void, Never>?
 
@@ -75,7 +75,7 @@ final class LockScreenBar {
         isLocked = false
         AudioOutputs.shared.isPickerVisible = false
         SpotifyController.shared.hoverProgress = nil
-        // Petit délai pour éviter un clignotement pendant l'animation de déverrouillage.
+        // Short delay to avoid flickering during the unlock animation.
         unlockTask?.cancel()
         unlockTask = Task { @MainActor [weak self] in
             try? await Task.sleep(nanoseconds: 150_000_000)
@@ -97,7 +97,7 @@ final class LockScreenBar {
         )
     }
 
-    /// Place la barre à cheval sur le bas de la carte pochette (mêmes réglages Taille/Position).
+    /// Positions the bar relative to the artwork card (same Size/Position settings).
     private func layout(_ panel: LockBarPanel, on screen: NSScreen) {
         let defaults = UserDefaults.standard
         let frame = screen.frame
@@ -106,23 +106,23 @@ final class LockScreenBar {
             coverCenter: defaults.double(forKey: Prefs.coverCenter)
         ).cardRect(screenWidth: frame.width, screenHeight: frame.height)
 
-        // Même largeur que la pochette (les deux bords sont alignés), juste en dessous
-        // avec un petit espace : elle ne la recouvre jamais. Tout le contenu est dessiné
-        // sur une grille de 300 × 124 unités `s`, pour garder les mêmes proportions
-        // quelle que soit la taille de la pochette.
+        // Same width as the artwork (both edges are aligned), just below it
+        // with a small gap: it never overlaps it. All content is drawn
+        // on a 300 × 124 grid of `s` units, to keep the same proportions
+        // whatever the artwork size.
         let barWidth = max(card.width, 240)
         let s = barWidth / 300
         let barHeight = 124 * s
-        // Mêmes coins arrondis que la pochette (rayon = 4 % de sa largeur).
+        // Same rounded corners as the artwork (radius = 4% of its width).
         let cornerRadius = card.width * 0.04
-        let barTop = card.maxY + frame.height * 0.016 // depuis le haut
+        let barTop = card.maxY + frame.height * 0.016 // from the top
 
-        // Le panneau contient aussi la pochette nette (au-dessus de la barre) : elle change
-        // instantanément, sans attendre que macOS applique le nouveau fond d'écran.
-        // Les marges laissent la place à son ombre.
+        // The panel also holds the sharp artwork (above the bar): it changes
+        // instantly, without waiting for macOS to apply the new wallpaper.
+        // The margins leave room for its shadow.
         let margin = max(30, card.width * 0.14)
-        // Sur les côtés, assez de place pour le pop-up des sorties audio, centré sur
-        // le bouton 💻 au bord de la barre (sa moitié déborde, ombre comprise).
+        // On the sides, enough room for the audio output pop-up, centered on
+        // the 💻 button at the edge of the bar (half of it overflows, shadow included).
         let sideMargin = max(margin, OutputPopover.width(s: s) / 2 + 24 * s)
         let gap = barTop - card.maxY
         let coverSpace = card.height + gap
@@ -145,7 +145,7 @@ final class LockScreenBar {
     }
 }
 
-/// Contenu de la barre, uniquement si un morceau est chargé.
+/// Bar content, only when a track is loaded.
 private struct LockBarContent: View {
     @ObservedObject private var spotify = SpotifyController.shared
     @ObservedObject private var outputs = AudioOutputs.shared
@@ -154,13 +154,13 @@ private struct LockBarContent: View {
     let s: CGFloat
     let margin: CGFloat
     let coverSide: CGFloat
-    /// Hauteur de la pochette + espace jusqu'à la barre.
+    /// Artwork height + gap down to the bar.
     let coverSpace: CGFloat
     let cornerRadius: CGFloat
 
     var body: some View {
         ZStack(alignment: .top) {
-            // Un clic à côté du pop-up le referme, comme sur macOS.
+            // Clicking outside the pop-up closes it, like on macOS.
             if outputs.isPickerVisible {
                 Color.black.opacity(0.001)
                     .onTapGesture { outputs.isPickerVisible = false }
@@ -189,7 +189,7 @@ private struct LockBarContent: View {
         .animation(.spring(response: 0.32, dampingFraction: 0.82), value: outputs.isPickerVisible)
     }
 
-    /// Pop-up centré au-dessus du bouton 💻, sa flèche au milieu pointant sur l'icône.
+    /// Pop-up centered above the 💻 button, with its arrow in the middle pointing at the icon.
     private func popover(button: CGRect) -> some View {
         let size = OutputPopover.size(s: s, rows: OutputPopover.visibleRows(outputs.devices.count))
         let gap = 4 * s
@@ -205,8 +205,8 @@ private struct LockBarContent: View {
     }
 }
 
-/// Pochette nette, dessinée par Tide au-dessus du fond d'écran : elle suit le morceau
-/// immédiatement (fondu enchaîné), alors que le fond d'écran met un moment à être appliqué.
+/// Sharp artwork, drawn by Tide above the wallpaper: it follows the track
+/// immediately (cross-fade), whereas the wallpaper takes a moment to be applied.
 private struct LockCover: View {
     @ObservedObject private var spotify = SpotifyController.shared
     @AppStorage(Prefs.wallpaperMode) private var wallpaperMode = true
@@ -235,7 +235,7 @@ private struct LockCover: View {
     }
 }
 
-/// Position du bouton 💻 dans la barre, pour y accrocher le pop-up.
+/// Position of the 💻 button in the bar, to anchor the pop-up to it.
 private struct OutputButtonAnchorKey: PreferenceKey {
     static let defaultValue: Anchor<CGRect>? = nil
     static func reduce(value: inout Anchor<CGRect>?, nextValue: () -> Anchor<CGRect>?) {
@@ -243,10 +243,10 @@ private struct OutputButtonAnchorKey: PreferenceKey {
     }
 }
 
-/// Bulle à coins arrondis avec une petite flèche en bas, comme les popovers de macOS.
+/// Rounded bubble with a small arrow at the bottom, like macOS popovers.
 private struct PopoverShape: Shape {
     var cornerRadius: CGFloat
-    /// Abscisse de la pointe, depuis le bord gauche.
+    /// X position of the tip, from the left edge.
     var arrowX: CGFloat
     var arrowWidth: CGFloat
     var arrowHeight: CGFloat
@@ -266,7 +266,7 @@ private struct PopoverShape: Shape {
         p.addLine(to: CGPoint(x: body.maxX, y: body.maxY - r))
         p.addArc(tangent1End: CGPoint(x: body.maxX, y: body.maxY),
                  tangent2End: CGPoint(x: body.maxX - r, y: body.maxY), radius: r)
-        // Flèche : flancs adoucis et pointe arrondie
+        // Arrow: softened sides and a rounded tip
         p.addLine(to: CGPoint(x: ax + half, y: body.maxY))
         p.addCurve(to: CGPoint(x: ax + half * 0.22, y: tip.y - arrowHeight * 0.12),
                    control1: CGPoint(x: ax + half * 0.55, y: body.maxY),
@@ -286,13 +286,13 @@ private struct PopoverShape: Shape {
     }
 }
 
-/// « 3:07 » à partir d'un nombre de secondes.
+/// "3:07" from a number of seconds.
 private func formatTime(_ t: TimeInterval) -> String {
     let total = max(Int(t.rounded(.down)), 0)
     return String(format: "%d:%02d", total / 60, total % 60)
 }
 
-/// Petite bulle de temps au survol de la barre de progression, façon Apple.
+/// Small time bubble when hovering the progress bar, Apple-style.
 private struct TimeBubble: View {
     let text: String
     let s: CGFloat
@@ -310,12 +310,12 @@ private struct TimeBubble: View {
     }
 }
 
-/// Pop-up de choix de la sortie audio, façon Centre de contrôle :
-/// carte Liquid Glass flottante, icônes dans des pastilles, sortie active en bleu.
+/// Audio output picker pop-up, Control Center style:
+/// floating Liquid Glass card, icons in pills, active output in blue.
 private struct OutputPopover: View {
     @ObservedObject private var outputs = AudioOutputs.shared
     let s: CGFloat
-    /// Abscisse de la pointe de la flèche, depuis le bord gauche du pop-up.
+    /// X position of the arrow tip, from the pop-up's left edge.
     var arrowX: CGFloat
 
     static let maxVisibleRows = 5
@@ -325,18 +325,18 @@ private struct OutputPopover: View {
     static func arrowWidth(s: CGFloat) -> CGFloat { 18 * s }
     static func cornerRadius(s: CGFloat) -> CGFloat { 14 * s }
     private static func headerHeight(s: CGFloat) -> CGFloat { 24 * s }
-    private static func verticalPadding(s: CGFloat) -> CGFloat { 14 * s } // 5 en haut, 9 en bas
+    private static func verticalPadding(s: CGFloat) -> CGFloat { 14 * s } // 5 at the top, 9 at the bottom
 
     static func visibleRows(_ count: Int) -> Int { max(min(count, maxVisibleRows), 1) }
 
-    /// Taille totale, flèche comprise.
+    /// Total size, arrow included.
     static func size(s: CGFloat, rows: Int) -> CGSize {
         CGSize(width: width(s: s),
                height: headerHeight(s: s) + CGFloat(rows) * rowHeight(s: s)
                    + verticalPadding(s: s) + arrowHeight(s: s))
     }
 
-    /// Hauteur maximale, pour réserver la place dans le panneau.
+    /// Maximum height, to reserve room in the panel.
     static func maxHeight(s: CGFloat) -> CGFloat { size(s: s, rows: maxVisibleRows).height }
 
     var body: some View {
@@ -345,13 +345,13 @@ private struct OutputPopover: View {
                                  arrowWidth: Self.arrowWidth(s: s), arrowHeight: Self.arrowHeight(s: s))
 
         VStack(alignment: .leading, spacing: 0) {
-            Text("Sortie audio")
+            Text("Audio Output")
                 .font(.system(size: 11 * s, weight: .bold))
                 .padding(.horizontal, 8 * s)
                 .frame(height: Self.headerHeight(s: s), alignment: .center)
 
             if outputs.devices.isEmpty {
-                Text("Aucune sortie disponible")
+                Text("No outputs available")
                     .font(.system(size: 10.5 * s, weight: .medium))
                     .foregroundStyle(.white.opacity(0.6))
                     .padding(.horizontal, 8 * s)
@@ -402,7 +402,7 @@ private struct OutputPopover: View {
     }
 }
 
-/// Lecteur compact : titre/artiste, progression avec temps, puis ⏮ ⏯ ⏭.
+/// Compact player: title/artist, progress with times, then ⏮ ⏯ ⏭.
 private struct CompactPlayer: View {
     @ObservedObject private var spotify = SpotifyController.shared
     @ObservedObject private var outputs = AudioOutputs.shared
@@ -410,11 +410,11 @@ private struct CompactPlayer: View {
     let s: CGFloat
 
     var body: some View {
-        // Grille 300 × 124 : marges 18 / 13, titre (≈ 31), 9, progression (14),
-        // espace souple, commandes (≈ 36). Les bords du ♥ et du 💻 tombent sur ceux
-        // de la barre de progression.
+        // 300 × 124 grid: margins 18 / 13, title (≈ 31), 9, progress (14),
+        // flexible space, controls (≈ 36). The edges of the ♥ and 💻 line up with
+        // those of the progress bar.
         VStack(spacing: 0) {
-            // Titre + artiste, centrés ; petite onde à droite
+            // Title + artist, centered; small wave on the right
             ZStack {
                 VStack(spacing: 2 * s) {
                     Text(track.title)
@@ -465,8 +465,8 @@ private struct CompactPlayer: View {
         .padding(.vertical, 13 * s)
     }
 
-    /// `edge` : les boutons des côtés débordent un peu dans la marge, pour que l'icône
-    /// (et non sa zone cliquable) s'aligne sur le bord de la barre de progression.
+    /// `edge`: the side buttons overflow slightly into the margin, so that the icon
+    /// (not its hit area) lines up with the edge of the progress bar.
     private func button(_ symbol: String, size: CGFloat, edge: HorizontalEdge? = nil,
                         active: Bool = false, reportsAnchor: Bool = false,
                         action: @escaping () -> Void) -> some View {
@@ -491,7 +491,7 @@ private struct CompactPlayer: View {
         let scrubbing = spotify.scrubPosition != nil
         let hover = spotify.hoverProgress
         let active = scrubbing || hover != nil
-        // Bulle : position survolée, ou position en cours pendant le glisser.
+        // Bubble: hovered position, or current position while dragging.
         let bubble: Double? = scrubbing ? fraction : hover
 
         return HStack(spacing: 8 * s) {
@@ -500,7 +500,7 @@ private struct CompactPlayer: View {
                 let width = g.size.width
                 ZStack(alignment: .leading) {
                     Capsule().fill(.white.opacity(0.22))
-                    // Aperçu discret jusqu'au point survolé
+                    // Subtle preview up to the hovered point
                     if let hover, !scrubbing, hover > fraction {
                         Capsule().fill(.white.opacity(0.16))
                             .frame(width: width * hover)
@@ -546,7 +546,7 @@ private struct CompactPlayer: View {
         .foregroundStyle(.white.opacity(0.65))
     }
 
-    /// Garde la bulle entièrement au-dessus de la barre (pas de débordement aux extrémités).
+    /// Keeps the bubble fully above the bar (no overflow at the ends).
     private static func clampBubble(_ x: CGFloat, width: CGFloat, s: CGFloat) -> CGFloat {
         let half = 15 * s
         guard width > half * 2 else { return width / 2 }
