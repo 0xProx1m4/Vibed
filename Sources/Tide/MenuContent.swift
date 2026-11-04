@@ -31,8 +31,12 @@ struct MenuContent: View {
 
             Divider()
 
-            QuitButton()
-                .padding(.horizontal, -8) // la surbrillance déborde un peu, comme un menu macOS
+            MenuRowButton(title: "Quitter Tide", systemImage: "power", shortcut: "⌘Q") {
+                // Laisse le temps de voir le bouton s'enfoncer avant de fermer.
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.18) { NSApp.terminate(nil) }
+            }
+            .keyboardShortcut("q", modifiers: .command)
+            .padding(.horizontal, -8) // la surbrillance déborde un peu, comme un menu macOS
                 .padding(.top, -6)
         }
         .padding(16)
@@ -62,13 +66,13 @@ struct MenuContent: View {
         VStack(alignment: .leading, spacing: 8) {
             sectionTitle("Compte Spotify (bouton ♥)")
             if webAPI.isConnected {
-                HStack {
-                    Label("Connecté", systemImage: "checkmark.circle.fill")
-                        .foregroundStyle(.green)
-                    Spacer()
-                    Button("Se déconnecter") { webAPI.disconnect() }
+                Label("Connecté", systemImage: "checkmark.circle.fill")
+                    .foregroundStyle(.green)
+                    .font(.system(size: 12))
+                MenuRowButton(title: "Se déconnecter", systemImage: "rectangle.portrait.and.arrow.right") {
+                    webAPI.disconnect()
                 }
-                .font(.system(size: 12))
+                .padding(.horizontal, -8) // la surbrillance déborde un peu, comme un menu macOS
                 if webAPI.queueForbidden {
                     Text("Reconnecte-toi (Se déconnecter, puis Se connecter) pour que Tide précharge les pochettes des prochains morceaux.")
                         .font(.system(size: 11))
@@ -199,42 +203,44 @@ struct MenuContent: View {
     }
 }
 
-/// Bouton « Quitter Tide » : ligne de menu à la macOS, avec une surbrillance discrète au
-/// survol, qui s'enfonce légèrement au clic, puis ferme l'app une fois l'animation jouée.
-/// Raccourci ⌘Q.
-private struct QuitButton: View {
+/// Ligne de menu à la macOS (« Se déconnecter », « Quitter Tide ») : surbrillance discrète
+/// au survol, légère pression au clic.
+private struct MenuRowButton: View {
+    let title: String
+    let systemImage: String
+    var shortcut: String?
+    let action: () -> Void
+
     var body: some View {
-        Button {
-            // Laisse le temps de voir le bouton s'enfoncer avant de fermer.
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.18) { NSApp.terminate(nil) }
-        } label: {
+        Button(action: action) {
             HStack(spacing: 8) {
-                Image(systemName: "power")
+                Image(systemName: systemImage)
                     .font(.system(size: 12, weight: .semibold))
                     .frame(width: 16)
-                Text("Quitter Tide")
+                Text(title)
                     .font(.system(size: 13))
                 Spacer(minLength: 0)
-                Text("⌘Q")
-                    .font(.system(size: 12))
-                    .foregroundStyle(.tertiary)
+                if let shortcut {
+                    Text(shortcut)
+                        .font(.system(size: 12))
+                        .foregroundStyle(.tertiary)
+                }
             }
             .padding(.horizontal, 8)
             .frame(height: 30)
             .contentShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
         }
-        .buttonStyle(QuitButtonStyle())
-        .keyboardShortcut("q", modifiers: .command)
+        .buttonStyle(MenuRowStyle())
     }
 }
 
-private struct QuitButtonStyle: ButtonStyle {
+private struct MenuRowStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
-        QuitButtonBody(configuration: configuration)
+        MenuRowBody(configuration: configuration)
     }
 }
 
-private struct QuitButtonBody: View {
+private struct MenuRowBody: View {
     let configuration: ButtonStyleConfiguration
     // `State` sans `@` : voir `PressableBody` (pas de macro avec les Command Line Tools).
     private let hoverState = State(initialValue: false)
