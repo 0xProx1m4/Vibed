@@ -27,8 +27,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             Prefs.backgroundBlur: 0.0,
             Prefs.instantBackground: true,
             Prefs.lockBackgroundSpaceLevel: Int(SkyLight.SpaceLevel.screenLock),
-            // Juste au-dessus du bureau : sous l'horloge et le mot de passe, on l'espère.
-            Prefs.lockBackgroundWindowLevel: Int(CGWindowLevelForKey(.desktopIconWindow)) + 1,
+            // Niveau de fenêtre normal : au-dessus du fond d'écran, sous l'horloge et le mot de passe
+            // (testé sur macOS : l'espace 300 + fenêtre 0 laisse toute l'interface visible).
+            Prefs.lockBackgroundWindowLevel: Int(CGWindowLevelForKey(.normalWindow)),
         ])
         NSApp.setActivationPolicy(.accessory)
 

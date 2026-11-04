@@ -23,8 +23,8 @@ private final class LockBackgroundPanel: NSPanel {
 /// Fond de l'écran verrouillé dessiné par Tide (pochette en plein écran), pour qu'il change
 /// instantanément avec le morceau : appliquer un fond d'écran prend une à deux secondes à macOS.
 ///
-/// EXPÉRIMENTAL : la fenêtre est placée dans un espace au niveau de l'écran de verrouillage,
-/// avec un niveau de fenêtre bas, dans l'espoir de passer au-dessus du fond d'écran mais sous
+/// La fenêtre est placée dans un espace au niveau de l'écran de verrouillage,
+/// avec un niveau de fenêtre normal, ce qui la fait passer au-dessus du fond d'écran mais sous
 /// l'horloge et le champ du mot de passe de macOS. Le fond d'écran continue d'être appliqué
 /// en dessous : si la fenêtre finit cachée derrière, on retombe simplement sur l'ancien
 /// comportement. Les niveaux se règlent sans recompiler (voir `Prefs.lockBackground…`).

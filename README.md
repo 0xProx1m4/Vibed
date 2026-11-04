@@ -39,7 +39,7 @@ barre ne s'affiche simplement plus (le reste continue de marcher).
 
 #### Changement de morceau instantané
 
-- **Fond instantané (expérimental)** : en plus du fond d'écran, Tide dessine la pochette en plein
+- **Fond instantané** : en plus du fond d'écran, Tide dessine la pochette en plein
   écran dans sa propre fenêtre, qui change aussitôt avec le morceau. Elle est placée au niveau de
   l'écran verrouillé, avec l'idée de passer au-dessus du fond d'écran mais sous l'horloge et le
   champ du mot de passe. Si elle n'apparaît pas, rien ne change (le fond d'écran reste dessous).
@@ -47,7 +47,7 @@ barre ne s'affiche simplement plus (le reste continue de marcher).
 
   ```bash
   defaults write app.tide.lockscreen lockBackgroundSpaceLevel -int 300
-  defaults write app.tide.lockscreen lockBackgroundWindowLevel -int -2147483602
+  defaults write app.tide.lockscreen lockBackgroundWindowLevel -int 0
   ```
 
   Pour le désactiver : `defaults write app.tide.lockscreen instantBackground -bool false`.
