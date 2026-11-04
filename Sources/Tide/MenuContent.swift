@@ -66,13 +66,20 @@ struct MenuContent: View {
         VStack(alignment: .leading, spacing: 8) {
             sectionTitle("Compte Spotify (bouton ♥)")
             if webAPI.isConnected {
-                Label("Connecté", systemImage: "checkmark.circle.fill")
-                    .foregroundStyle(.green)
-                    .font(.system(size: 12))
-                MenuRowButton(title: "Se déconnecter", systemImage: "rectangle.portrait.and.arrow.right") {
-                    webAPI.disconnect()
+                HStack {
+                    Label("Connecté", systemImage: "checkmark.circle.fill")
+                        .foregroundStyle(.green)
+                    Spacer()
+                    Button { webAPI.disconnect() } label: {
+                        Text("Se déconnecter")
+                            .padding(.horizontal, 8)
+                            .frame(height: 24)
+                            .contentShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+                    }
+                    .buttonStyle(MenuRowStyle())
+                    .padding(.trailing, -8) // le texte reste aligné sur le bord, la surbrillance déborde
                 }
-                .padding(.horizontal, -8) // la surbrillance déborde un peu, comme un menu macOS
+                .font(.system(size: 12))
                 if webAPI.queueForbidden {
                     Text("Reconnecte-toi (Se déconnecter, puis Se connecter) pour que Tide précharge les pochettes des prochains morceaux.")
                         .font(.system(size: 11))
@@ -203,8 +210,8 @@ struct MenuContent: View {
     }
 }
 
-/// Ligne de menu à la macOS (« Se déconnecter », « Quitter Tide ») : surbrillance discrète
-/// au survol, légère pression au clic.
+/// Ligne de menu à la macOS (« Quitter Tide ») : surbrillance discrète au survol,
+/// légère pression au clic.
 private struct MenuRowButton: View {
     let title: String
     let systemImage: String
