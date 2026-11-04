@@ -119,4 +119,5 @@ Sources/Tide/
   Glass.swift              Liquid Glass effect (native macOS 26 + imitation)
   EqualizerIcon.swift      animated now-playing indicator
   MenuContent.swift        menu bar panel
+  MenuBarIcon.swift        menu bar icon (sound wave shaped like a tide)
 ```

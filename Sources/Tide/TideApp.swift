@@ -5,8 +5,10 @@ struct TideApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
 
     var body: some Scene {
-        MenuBarExtra("Tide", systemImage: "water.waves") {
+        MenuBarExtra {
             MenuContent()
+        } label: {
+            Image(nsImage: MenuBarIcon.image)
         }
         .menuBarExtraStyle(.window)
     }
