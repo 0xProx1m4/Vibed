@@ -77,6 +77,51 @@ final class LockBackground {
             }
             panels.append(panel)
         }
+        scheduleDiagnostic(spaceLevel: spaceLevel, windowLevel: windowLevel)
+    }
+
+    // MARK: - Diagnostic
+
+    /// Fichier où Tide note, à chaque verrouillage, les fenêtres affichées de l'avant vers
+    /// l'arrière, avec leur niveau : on y voit où macOS dessine son fond et son interface,
+    /// et où se trouve la fenêtre de fond de Tide.
+    static var diagnosticFile: URL {
+        FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
+            .appendingPathComponent("Tide/lock-diagnostic.txt")
+    }
+
+    private func scheduleDiagnostic(spaceLevel: Int32, windowLevel: Int) {
+        let ours = Set(panels.map(\.windowNumber))
+        Task { @MainActor [weak self] in
+            try? await Task.sleep(nanoseconds: 2_000_000_000)
+            guard let self, self.isLocked else { return }
+            let info = CGWindowListCopyWindowInfo([.optionOnScreenOnly], kCGNullWindowID) as? [[String: Any]] ?? []
+            var lines = [
+                "Tide – verrouillage du \(Date())",
+                "Fond Tide : espace \(spaceLevel), niveau de fenêtre \(windowLevel), fenêtres \(ours.sorted())",
+                "Visibles (les fenêtres Tide sont \(self.panels.map(\.isVisible))) :",
+                "",
+                "  n°  | niveau      | app                    | alpha | cadre",
+            ]
+            for window in info {
+                let number = window[kCGWindowNumber as String] as? Int ?? 0
+                let layer = window[kCGWindowLayer as String] as? Int ?? 0
+                let owner = window[kCGWindowOwnerName as String] as? String ?? "?"
+                let alpha = window[kCGWindowAlpha as String] as? Double ?? 1
+                let bounds = (window[kCGWindowBounds as String] as? [String: Any]).flatMap {
+                    CGRect(dictionaryRepresentation: $0 as CFDictionary)
+                } ?? .zero
+                let mark = ours.contains(number) ? "  ← FOND TIDE" : ""
+                func pad(_ s: String, _ n: Int) -> String {
+                    s.count >= n ? String(s.prefix(n)) : s + String(repeating: " ", count: n - s.count)
+                }
+                lines.append("\(pad(String(number), 5)) | \(pad(String(layer), 11)) | \(pad(owner, 22)) | "
+                             + "\(String(format: "%.2f", alpha))  | \(NSStringFromRect(bounds))\(mark)")
+            }
+            let text = lines.joined(separator: "\n") + "\n"
+            try? text.write(to: Self.diagnosticFile, atomically: true, encoding: .utf8)
+            NSLog("%@", text)
+        }
     }
 
     private func screenUnlocked() {
