@@ -230,7 +230,7 @@ private struct LockCover: View {
         }
         .frame(width: side, height: side)
         .shadow(color: .black.opacity(0.5), radius: side * 0.07, y: side * 0.045)
-        .animation(.easeInOut(duration: 0.35), value: spotify.artwork.map(ObjectIdentifier.init))
+        .animation(.easeOut(duration: LockTiming.artworkFade), value: spotify.artwork.map(ObjectIdentifier.init))
         .allowsHitTesting(false)
     }
 }

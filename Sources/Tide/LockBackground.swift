@@ -145,8 +145,10 @@ final class LockBackground {
     }
 }
 
-/// Même rendu que l'image de fond d'écran (`WallpaperRenderer`), mais dessiné directement :
-/// pochette en plein écran légèrement zoomée, vignette, fondu enchaîné à chaque morceau.
+/// Même rendu que l'image de fond d'écran (`WallpaperRenderer`), mais dessiné directement.
+/// Tout est fait pour que le changement soit aussi rapide que la pochette du milieu :
+/// l'image est affichée telle quelle (aucun filtre plein écran à recalculer), seule elle
+/// passe en fondu, et la vignette reste fixe par-dessus.
 private struct LockBackgroundView: View {
     @ObservedObject private var spotify = SpotifyController.shared
     @AppStorage(Prefs.backgroundBlur) private var blur = 0.0
@@ -155,32 +157,49 @@ private struct LockBackgroundView: View {
     var body: some View {
         ZStack {
             if let art = spotify.artwork {
-                ZStack {
-                    Image(nsImage: art)
-                        .resizable()
-                        .interpolation(.high)
-                        .aspectRatio(contentMode: .fill)
-                        .frame(width: size.width, height: size.height)
-                        .scaleEffect(1.12)
-                        .saturation(1.08)
-                        .brightness(-0.02)
-                        .blur(radius: size.height * 0.012 * blur, opaque: true)
-                        .frame(width: size.width, height: size.height)
-                        .clipped()
+                artwork(art)
+                    .id(ObjectIdentifier(art))
+                    .transition(.opacity)
 
-                    // Vignette pour faire ressortir l'horloge et le lecteur
+                // Vignette pour faire ressortir l'horloge et le lecteur (fixe, jamais redessinée)
+                ZStack {
                     RadialGradient(colors: [.black.opacity(0), .black.opacity(0.3)], center: .center,
                                    startRadius: size.height * 0.3,
                                    endRadius: max(size.width, size.height) * 0.75)
                     LinearGradient(colors: [.black.opacity(0.2), .black.opacity(0)],
                                    startPoint: .top, endPoint: UnitPoint(x: 0.5, y: 0.3))
                 }
-                .id(ObjectIdentifier(art))
-                .transition(.opacity)
+                .transition(.identity)
             }
         }
         .frame(width: size.width, height: size.height)
-        .animation(.easeInOut(duration: 0.35), value: spotify.artwork.map(ObjectIdentifier.init))
+        .animation(.easeOut(duration: LockTiming.artworkFade), value: spotify.artwork.map(ObjectIdentifier.init))
         .allowsHitTesting(false)
     }
+
+    @ViewBuilder
+    private func artwork(_ art: NSImage) -> some View {
+        let image = art.cgImage(forProposedRect: nil, context: nil, hints: nil)
+            .map { Image(decorative: $0, scale: 1) } ?? Image(nsImage: art)
+        let view = image
+            .resizable()
+            .interpolation(.medium)
+            .aspectRatio(contentMode: .fill)
+            .frame(width: size.width, height: size.height)
+            .scaleEffect(1.12)
+            .frame(width: size.width, height: size.height)
+            .clipped()
+        // Le flou coûte cher en plein écran : seulement s'il est réglé.
+        if blur > 0 {
+            view.blur(radius: size.height * 0.012 * blur, opaque: true)
+        } else {
+            view
+        }
+    }
+}
+
+/// Durée commune des fondus de pochette sur l'écran verrouillé (fond et pochette du milieu
+/// restent synchronisés).
+enum LockTiming {
+    static let artworkFade: Double = 0.2
 }

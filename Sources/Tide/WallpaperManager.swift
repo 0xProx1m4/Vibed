@@ -52,7 +52,11 @@ final class WallpaperManager {
         static var current: Settings {
             let d = UserDefaults.standard
             return Settings(
-                enabled: d.bool(forKey: Prefs.wallpaperMode),
+                // Fond instantané de Tide actif : il recouvre entièrement le fond d'écran de
+                // l'écran verrouillé, inutile de le changer (et de calculer des images 5K pile
+                // au moment où le morceau change).
+                enabled: d.bool(forKey: Prefs.wallpaperMode)
+                    && !(d.bool(forKey: Prefs.instantBackground) && SkyLight.isAvailable),
                 coverSize: d.double(forKey: Prefs.coverSize),
                 coverCenter: d.double(forKey: Prefs.coverCenter),
                 blur: d.double(forKey: Prefs.backgroundBlur),

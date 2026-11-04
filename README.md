@@ -39,10 +39,11 @@ barre ne s'affiche simplement plus (le reste continue de marcher).
 
 #### Changement de morceau instantané
 
-- **Fond instantané** : en plus du fond d'écran, Tide dessine la pochette en plein
-  écran dans sa propre fenêtre, qui change aussitôt avec le morceau. Elle est placée au niveau de
-  l'écran verrouillé, avec l'idée de passer au-dessus du fond d'écran mais sous l'horloge et le
-  champ du mot de passe. Si elle n'apparaît pas, rien ne change (le fond d'écran reste dessous).
+- **Fond instantané** : au lieu de changer le fond d'écran, Tide dessine la pochette en plein
+  écran dans sa propre fenêtre, qui change aussitôt avec le morceau. Elle se glisse entre le cache
+  plein écran de l'écran verrouillé (niveau 2001) et son interface (2004, horloge et mot de
+  passe). Le fond d'écran n'est alors plus du tout modifié. Un relevé des fenêtres affichées est
+  écrit à chaque verrouillage dans `~/Library/Application Support/Tide/lock-diagnostic.txt`.
   Pour essayer d'autres niveaux sans recompiler, puis verrouiller avec ⌃⌘Q :
 
   ```bash
