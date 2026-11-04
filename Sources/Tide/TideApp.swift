@@ -27,9 +27,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             Prefs.backgroundBlur: 0.0,
             Prefs.instantBackground: true,
             Prefs.lockBackgroundSpaceLevel: Int(SkyLight.SpaceLevel.screenLock),
-            // Niveau de fenêtre normal : au-dessus du fond d'écran, sous l'horloge et le mot de passe
-            // (testé sur macOS : l'espace 300 + fenêtre 0 laisse toute l'interface visible).
-            Prefs.lockBackgroundWindowLevel: Int(CGWindowLevelForKey(.normalWindow)),
+            // Sur l'écran verrouillé, loginwindow a un cache plein écran au niveau 2001 et son
+            // interface (horloge, mot de passe) au niveau 2004 : le fond Tide se glisse entre les deux.
+            Prefs.lockBackgroundWindowLevel: 2002,
         ])
         NSApp.setActivationPolicy(.accessory)
 

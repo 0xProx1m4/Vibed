@@ -47,7 +47,7 @@ barre ne s'affiche simplement plus (le reste continue de marcher).
 
   ```bash
   defaults write app.tide.lockscreen lockBackgroundSpaceLevel -int 300
-  defaults write app.tide.lockscreen lockBackgroundWindowLevel -int 0
+  defaults write app.tide.lockscreen lockBackgroundWindowLevel -int 2002
   ```
 
   Pour le désactiver : `defaults write app.tide.lockscreen instantBackground -bool false`.

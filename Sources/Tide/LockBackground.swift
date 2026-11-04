@@ -24,8 +24,8 @@ private final class LockBackgroundPanel: NSPanel {
 /// instantanément avec le morceau : appliquer un fond d'écran prend une à deux secondes à macOS.
 ///
 /// La fenêtre est placée dans un espace au niveau de l'écran de verrouillage,
-/// avec un niveau de fenêtre normal, ce qui la fait passer au-dessus du fond d'écran mais sous
-/// l'horloge et le champ du mot de passe de macOS. Le fond d'écran continue d'être appliqué
+/// au niveau 2002 : entre le cache plein écran de loginwindow (2001) et son interface
+/// (2004, horloge et mot de passe). Le fond d'écran continue d'être appliqué
 /// en dessous : si la fenêtre finit cachée derrière, on retombe simplement sur l'ancien
 /// comportement. Les niveaux se règlent sans recompiler (voir `Prefs.lockBackground…`).
 @MainActor
