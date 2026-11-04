@@ -25,7 +25,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             Prefs.coverSize: 0.38,
             Prefs.coverCenter: 0.44,
             Prefs.backgroundBlur: 0.0,
-            Prefs.instantBackground: true,
+            // Désactivé : loginwindow dessine le fond de l'écran verrouillé dans la même fenêtre
+            // que l'horloge (niveau 2004) ; dessous, le fond Tide est caché, et au-dessus il
+            // cacherait l'horloge et le mot de passe.
+            Prefs.instantBackground: false,
             Prefs.lockBackgroundSpaceLevel: Int(SkyLight.SpaceLevel.screenLock),
             // Sur l'écran verrouillé, loginwindow a un cache plein écran au niveau 2001 et son
             // interface (horloge, mot de passe) au niveau 2004 : le fond Tide se glisse entre les deux.

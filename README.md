@@ -39,19 +39,14 @@ barre ne s'affiche simplement plus (le reste continue de marcher).
 
 #### Changement de morceau instantané
 
-- **Fond instantané** : au lieu de changer le fond d'écran, Tide dessine la pochette en plein
-  écran dans sa propre fenêtre, qui change aussitôt avec le morceau. Elle se glisse entre le cache
-  plein écran de l'écran verrouillé (niveau 2001) et son interface (2004, horloge et mot de
-  passe). Le fond d'écran n'est alors plus du tout modifié. Un relevé des fenêtres affichées est
-  écrit à chaque verrouillage dans `~/Library/Application Support/Tide/lock-diagnostic.txt`.
-  Pour essayer d'autres niveaux sans recompiler, puis verrouiller avec ⌃⌘Q :
-
-  ```bash
-  defaults write app.tide.lockscreen lockBackgroundSpaceLevel -int 300
-  defaults write app.tide.lockscreen lockBackgroundWindowLevel -int 2002
-  ```
-
-  Pour le désactiver : `defaults write app.tide.lockscreen instantBackground -bool false`.
+- **Fond préparé à l'avance** : le fond d'écran des prochains morceaux est calculé dès que leur
+  pochette est en cache ; au changement de morceau, il ne reste qu'à le donner à macOS.
+- **Fond Tide (désactivé)** : sur l'écran verrouillé, loginwindow dessine le fond dans la même
+  fenêtre que l'horloge et le mot de passe (niveau 2004). Une fenêtre Tide en dessous est cachée,
+  au-dessus elle masque l'horloge. Pour essayer quand même :
+  `defaults write app.tide.lockscreen instantBackground -bool true` (niveau réglable avec
+  `lockBackgroundWindowLevel`). Un relevé des fenêtres est écrit à chaque verrouillage dans
+  `~/Library/Application Support/Tide/lock-diagnostic.txt`.
 - **Pochettes préchargées** : avec le compte Spotify connecté, Tide garde prêtes les
   pochettes des 5 prochains morceaux de la file : au lancement les 5 sont téléchargées en
   parallèle, puis à chaque morceau la pochette suivante est déjà là (affichage immédiat) et seule
