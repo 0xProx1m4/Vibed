@@ -41,31 +41,25 @@ enum WallpaperRenderer {
         ctx.interpolationQuality = .high
 
         // 1. Fond : pochette en « remplissage », légèrement zoomée, nette par défaut.
-        //    Agrandissement Lanczos (bien plus net qu'un simple redimensionnement).
-        let source = CIImage(cgImage: cover)
-        let fill = max(width / source.extent.width, height / source.extent.height) * 1.12
-        let scaled = source.applyingFilter("CILanczosScaleTransform", parameters: [
-            kCIInputScaleKey: fill,
-            kCIInputAspectRatioKey: 1.0,
-        ])
-        var background = scaled
-            .transformed(by: CGAffineTransform(
-                translationX: (width - scaled.extent.width) / 2 - scaled.extent.minX,
-                y: (height - scaled.extent.height) / 2 - scaled.extent.minY
-            ))
-            .clampedToExtent()
+        //    Dessin direct par CoreGraphics (bien plus rapide qu'un agrandissement Lanczos
+        //    par CoreImage, pour un résultat équivalent sur une photo de pochette).
+        let fill = max(width / CGFloat(cover.width), height / CGFloat(cover.height)) * 1.12
+        let drawSize = CGSize(width: CGFloat(cover.width) * fill, height: CGFloat(cover.height) * fill)
+        let drawRect = CGRect(x: (width - drawSize.width) / 2, y: (height - drawSize.height) / 2,
+                              width: drawSize.width, height: drawSize.height)
         if layout.blur > 0 {
-            background = background.applyingGaussianBlur(sigma: height * 0.012 * layout.blur)
-        }
-        background = background
-            .applyingFilter("CIColorControls", parameters: [
-                kCIInputSaturationKey: 1.08,
-                kCIInputBrightnessKey: -0.02,
-            ])
-            .cropped(to: canvas)
-
-        if let bg = ciContext.createCGImage(background, from: canvas, format: .RGBA8, colorSpace: space) {
-            ctx.draw(bg, in: canvas)
+            // Flou demandé : seul cas où CoreImage est nécessaire.
+            let background = CIImage(cgImage: cover)
+                .transformed(by: CGAffineTransform(scaleX: fill, y: fill))
+                .transformed(by: CGAffineTransform(translationX: drawRect.minX, y: drawRect.minY))
+                .clampedToExtent()
+                .applyingGaussianBlur(sigma: height * 0.012 * layout.blur)
+                .cropped(to: canvas)
+            if let bg = ciContext.createCGImage(background, from: canvas, format: .RGBA8, colorSpace: space) {
+                ctx.draw(bg, in: canvas)
+            }
+        } else {
+            ctx.draw(cover, in: drawRect)
         }
 
         // 2. Vignette pour faire ressortir l'horloge et le lecteur

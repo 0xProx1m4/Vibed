@@ -157,6 +157,22 @@ final class WallpaperManager {
         }
     }
 
+    // MARK: - Mesures
+
+    /// Journal des changements de fond pendant le verrouillage (derniers 60), pour voir où
+    /// passe le temps : `~/Library/Application Support/Tide/wallpaper-timing.txt`.
+    private var timingLines: [String] = []
+    private var lastArtworkChange = Date()
+
+    private func logTiming(_ message: String) {
+        let elapsed = Int(Date().timeIntervalSince(lastArtworkChange) * 1000)
+        let stamp = DateFormatter.localizedString(from: Date(), dateStyle: .none, timeStyle: .medium)
+        timingLines.append("\(stamp)  +\(elapsed) ms  \(message)")
+        if timingLines.count > 60 { timingLines.removeFirst(timingLines.count - 60) }
+        let file = folder.deletingLastPathComponent().appendingPathComponent("wallpaper-timing.txt")
+        try? (timingLines.joined(separator: "\n") + "\n").write(to: file, atomically: true, encoding: .utf8)
+    }
+
     private func setPrepared() {
         guard isLocked, !prepared.isEmpty else { return }
         backupOriginalsIfNeeded()
@@ -177,17 +193,27 @@ final class WallpaperManager {
     // MARK: - Réactions
 
     private func artworkChanged(_ image: NSImage?) {
+        lastArtworkChange = Date()
         if image == nil {
             prepared = [:]
             if isLocked { restoreOriginal() }
             return
         }
+        let id = SpotifyController.shared.track?.id
         // Fond déjà prêt (préparé à l'avance) : appliqué tout de suite, sans rendu.
-        if let id = SpotifyController.shared.track?.id, let ready = rendered[id] {
+        if let id, let ready = rendered[id] {
             generation += 1 // un rendu en cours pour un autre morceau ne doit plus s'appliquer
             prepared = ready.files
-            if isLocked { setPrepared() }
+            if isLocked {
+                setPrepared()
+                logTiming("pochette \(ready.final ? "HD" : "640") → fond déjà prêt, donné à macOS")
+            }
             if ready.final || !SpotifyController.shared.hasFinalArtwork(id) { return }
+        } else if isLocked {
+            let web = SpotifyWebAPI.shared
+            let prefetch = !web.isConnected ? "compte Spotify non connecté"
+                : web.queueForbidden ? "reconnexion Spotify nécessaire" : "actif"
+            logTiming("pochette \(id.map(SpotifyController.shared.hasFinalArtwork) == true ? "HD" : "640") → fond PAS prêt, calcul… (préchargement : \(prefetch))")
         }
         prepare()
     }
@@ -252,7 +278,9 @@ final class WallpaperManager {
         let folder = self.folder
 
         renderQueue.async { [weak self] in
+            let start = Date()
             let files = Self.renderFiles(cover: cover, layout: setup.layout, targets: setup.targets, folder: folder)
+            let renderTime = Date().timeIntervalSince(start)
             Task { @MainActor in
                 guard let self else { return }
                 if let trackID { self.remember(files, for: trackID, final: final) }
@@ -260,7 +288,10 @@ final class WallpaperManager {
                 self.prepared = files
                 self.cleanUp()
                 // Verrouillé (morceau suivant pendant le verrouillage, ou premier rendu) → on applique.
-                if self.isLocked { self.setPrepared() }
+                if self.isLocked {
+                    self.setPrepared()
+                    self.logTiming("fond calculé en \(Int(renderTime * 1000)) ms, donné à macOS")
+                }
             }
         }
     }
